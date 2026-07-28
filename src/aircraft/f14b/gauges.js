@@ -66,7 +66,7 @@ export const gauges = [
 for (const v of ['rioL', 'rioC', 'rioR']) {
   gauges.push(
     { id:'scTid_' + v, view:v, kind:'screen', x:768, y:439, w:382, h:382,
-      name:'TID', lit: s => s.power && s.rio.wcsUp, ins: true, tid: true },
+      name:'TID', lit: s => s.power && s.rio.wcsUp, ins: true, tid: true, round: true },
     { id:'scDdd_' + v, view:v, kind:'screen', x:874, y:112, w:188, h:164,
       name:'DDD', lit: s => s.power && s.rio.wcsUp },
     { id:'dgCap_' + v, view:v, kind:'chip', x:800, y:450, w:320, h:22,

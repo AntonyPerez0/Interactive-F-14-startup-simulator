@@ -36,7 +36,8 @@ function harness(procedure) {
     n = 0; while (S.sw[id] !== v && n++ < 10) { sim.click(id, -d); run(0.05); }
   };
   const type = str => str.split('').forEach(d => click('cap' + d));
-  return { sim, S, done, run, click, to, type, gate,
+  const kb = (open, page) => { S.kb.open = open; if (page != null) S.kb.page = page; gate(); };
+  return { sim, S, done, run, click, to, type, gate, kb,
            left: () => procedure.steps.filter((s, i) => !done[i]) };
 }
 
@@ -91,7 +92,7 @@ head('Pilot cold start');
 for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio')) {
   head('RIO · ' + proc.meta.name);
   const h = harness(proc);
-  const { S, run, click, to, type } = h;
+  const { S, run, click, to, type, kb } = h;
   S.rioSeat = true;                             // the scripted front-seater runs
 
   click('rioIcs');
@@ -103,11 +104,14 @@ for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio')) {
   ok('TID and DDD up after warm-up', S.rio.wcsUp);
 
   if (proc.meta.variant === 'carrier') {
-    to('dlPower','on'); to('dlModeSw','cains'); to('navMode','cva');
+    kb(true, 1);
+    to('dlPower','on'); to('dlFreq','209'); kb(false);
+    to('dlModeSw','cains'); to('navMode','cva');
     ok('turning through GND did not latch a shore align', S.ins.mode === 'cva', S.ins.mode);
   } else {
     to('navMode','gnd');
     ok('alignment waits for GND ALIGN', S.ins.mode === 'fine');
+    kb(true, 0);
     click('capClear'); click('cap1'); click('capNE'); type('25014'); click('capEnter');
     click('capClear'); click('cap6'); click('capNE'); type('55226'); click('capEnter');
     click('capClear'); click('cap4'); click('capNE'); type('197');   click('capEnter');
@@ -122,7 +126,9 @@ for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio')) {
   to('rioOxygen','on'); click('ejectSeat'); run(4); S.sw.canopy = 'closed';
   to('vuhfFunc','trg'); to('rioTacanFunc','tr'); click('rioStbyAdi');
   to('irtvPower','stby'); to('alr67Power','on'); to('decmMode','stby');
-  to('dlPower','on'); to('dlModeSw','tac'); to('iffMode4','on');
+  kb(true, 1);
+  to('dlPower','on'); to('dlModeSw','tac'); to('dlFreq','092'); kb(false);
+  to('iffMode4','on');
   to('ale39Mode','man'); to('flareMode','pilot');
   to('wcsMode','xmt'); to('irtvPower','on'); run(2);
 
@@ -165,6 +171,103 @@ head('Failure paths');
   ok('brake release hangs the alignment', Math.abs(AC.insPct(S) - before) < 0.001);
 }
 
+/* ------------------------------------------------- CAP entry cue sequence */
+head('CAP data entry cue');
+{
+  const shore = AC.procedures.find(p => p.meta.variant === 'shore');
+  const cases = [
+    ['Enter latitude',  ['capClear','cap1','capNE','cap2','cap5','cap0','cap1','cap4','capEnter']],
+    ['Enter longitude', ['capClear','cap6','capNE','cap5','cap5','cap2','cap2','cap6','capEnter']],
+    ['Enter altitude',  ['capClear','cap4','capNE','cap1','cap9','cap7','capEnter']],
+    ['Message button',  ['msgMagVar','cap8','capNE','cap1','cap7','capEnter']],
+  ];
+  const sim = createSim(AC);
+  for (const [label, seq] of cases) {
+    const step = shore.steps.find(s => s.t.includes(label));
+    let good = true, trace = [];
+    for (const expect of seq) {
+      const got = typeof step.tgt === 'function' ? step.tgt(sim.S) : step.tgt;
+      trace.push(got);
+      if (got !== expect) good = false;
+      sim.click(expect, 1);
+    }
+    ok('cue walks ' + label.toLowerCase(), good, trace.join(' '));
+  }
+}
+
+/* --------------------------------------------------- kneeboard integrity */
+head('Kneeboard');
+{
+  const kbp = AC.kneeboard.pages;
+  ok('has the two pages the guide uses', kbp.length === 2,
+     kbp.map(p => p.id).join(', '));
+
+  // the figures printed on GROUND SETTINGS must be the ones the CAP will take
+  const ground = kbp.find(p => p.id === 'ground');
+  const printed = Object.fromEntries(ground.rows.map(([k, v]) => [k, v]));
+  const digits = s => s.replace(/[^0-9]/g, '');
+  const sim = createSim(AC);
+  const enter = (field, keys) => {
+    sim.click('capClear'); sim.click(field); sim.click('capNE');
+    keys.split('').forEach(d => sim.click('cap' + d));
+    sim.click('capEnter');
+  };
+  enter('cap1', digits(printed['LATITUDE']));
+  enter('cap6', digits(printed['LONGITUDE']));
+  enter('cap4', digits(printed['ELEVATION']));
+  sim.click('msgMagVar');
+  sim.click('cap8'); sim.click('capNE');
+  digits(printed['MAGNETIC VARIATION']).split('').forEach(d => sim.click('cap' + d));
+  sim.click('capEnter');
+  ok('CAP accepts the printed coordinates',
+     Object.values(sim.S.rio.entered).every(Boolean),
+     JSON.stringify(sim.S.rio.entered));
+
+  // the wheel column must match the frequency column
+  const dl = kbp.find(p => p.id === 'datalink');
+  // the wheels show the frequency with the fixed leading 3 and the trailing
+  // zero dropped: 320.90 -> 20.9, 309.20 -> 09.2, 316.60 -> 16.6
+  const wheelsOk = dl.table.rows.every(([, freq, wheels]) => freq.slice(1, -1) === wheels);
+  ok('wheel settings match the frequencies', wheelsOk,
+     dl.table.rows.map(r => r[1] + '->' + r[2]).join('  '));
+
+  // and the wheel values must exist as states on the physical control
+  const ctl = AC.controls.find(c => c.id === 'dlFreq');
+  const missing = dl.table.rows
+    .map(([, , w]) => w.replace('.', ''))
+    .filter(w => !ctl.states.includes(w));
+  ok('every printed wheel setting is selectable', missing.length === 0, missing.join(', '));
+}
+
+/* ------------------------------------------------ Show me framing */
+head('Show me framing');
+{
+  const find = id => AC.controls.find(c => c.id === id) || AC.gauges.find(g => g.id === id);
+  const frame = (rects, W = 1400, H = 790, maxZoom = 1.35) => {
+    const pad = 70;
+    const x0 = Math.min(...rects.map(r => r.x)) - pad, y0 = Math.min(...rects.map(r => r.y)) - pad;
+    const x1 = Math.max(...rects.map(r => r.x + (r.w || 40))) + pad;
+    const y1 = Math.max(...rects.map(r => r.y + (r.h || 40))) + pad;
+    const fit = Math.min(W / 1920, H / 1080);
+    const z = Math.max(Math.min(maxZoom, W / (x1 - x0), H / (y1 - y0)), fit);
+    const panX = W / 2 - ((x0 + x1) / 2) * z, panY = H / 2 - ((y0 + y1) / 2) * z;
+    return { z, vis: r => panX + r.x * z >= -2 && panY + r.y * z >= -2 &&
+      panX + (r.x + (r.w || 40)) * z <= W + 2 && panY + (r.y + (r.h || 40)) * z <= H + 2 };
+  };
+  const withCtx = AC.controls.filter(c => c.ctx);
+  let hidden = 0, maxZoom = 0;
+  withCtx.forEach(c => {
+    const rects = [c].concat([].concat(c.ctx).map(find).filter(Boolean));
+    const f = frame(rects);
+    maxZoom = Math.max(maxZoom, f.z);
+    rects.forEach(r => { if (!f.vis(r)) { hidden++; console.log('           ' + c.id + ' hides ' + (r.id || '?')); } });
+  });
+  ok('controls declaring a readout keep it framed', hidden === 0,
+     withCtx.length + ' controls, zoom <= ' + maxZoom.toFixed(2));
+  ok('every ctx reference resolves',
+     withCtx.every(c => [].concat(c.ctx).every(id => !!find(id))));
+}
+
 /* ------------------------------------------------------------- geometry */
 head('Geometry and wiring');
 {
@@ -183,10 +286,14 @@ head('Geometry and wiring');
   ok('no overlapping hotspots in any view', overlaps === 0);
 
   const ids = new Set(AC.controls.map(c => c.id).concat(AC.gauges.map(g => g.id)));
+  const probe = createSim(AC).S;
   let unresolved = 0;
   AC.procedures.forEach(p => p.steps.forEach(s => {
-    if (s.tgt && !s.tgt.startsWith('comms:') && !ids.has(s.tgt)) {
-      unresolved++; console.log('           ' + p.meta.id + ' step ' + s.n + ' -> ' + s.tgt);
+    if (!s.tgt) return;
+    // a target may be a function of state, for multi-press sequences
+    const t = typeof s.tgt === 'function' ? s.tgt(probe) : s.tgt;
+    if (t && !t.startsWith('comms:') && !ids.has(t)) {
+      unresolved++; console.log('           ' + p.meta.id + ' step ' + s.n + ' -> ' + t);
     }
   }));
   ok('every step target resolves', unresolved === 0);

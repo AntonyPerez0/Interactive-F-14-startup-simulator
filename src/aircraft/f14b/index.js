@@ -90,6 +90,36 @@ export default {
     },
   },
 
+  /* The pilot's kneeboard. These are the figures the CAP will accept, so the
+     page and the checker cannot drift apart. */
+  kneeboard: {
+    pages: [
+      {
+        id:'ground', title:'GROUND SETTINGS',
+        rows: [
+          ['LATITUDE',           "25\u00b001'4  NORTH"],
+          ['LONGITUDE',          "55\u00b022'6  EAST"],
+          ['ELEVATION',          '197 FT'],
+          ['MAGNETIC VARIATION', '+1.7\u00b0'],
+        ],
+        foot: 'Degrees, minutes and TENTHS of a minute — not seconds. '
+            + "So 25\u00b001'4 is keyed as 2 5 0 1 4.",
+      },
+      {
+        id:'datalink', title:'TACTICAL DATALINK SYSTEMS',
+        table: {
+          head: ['HOST', 'FREQ MHz', 'WHEELS'],
+          rows: [
+            ['CVN-74  J. C. STENNIS', '320.90', '20.9'],
+            ['E-2C  AWACS',           '309.20', '09.2'],
+          ],
+        },
+        foot: 'The leading 3 is preset and cannot be changed — dial the last three digits only. '
+            + 'CAINS/WAYPT for a carrier alignment, TAC for everything else.',
+      },
+    ],
+  },
+
   /* switches a cockpit check should catch, used by the Scramble button */
   scramble: {
     parkBrake:'off', wingSweep:'fwd', airSource:'both', wingExtTrans:'off',

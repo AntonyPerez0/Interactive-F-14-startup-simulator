@@ -25,6 +25,7 @@ export function createSim(aircraft) {
       this.S = {
         t: 0, rate: 1, running: true,
         sw, touched: {}, faults: [],
+        kb: { open: false, page: 0 },      // the pilot's kneeboard
       };
       aircraft.initState(this.S, sw);
       return this.S;

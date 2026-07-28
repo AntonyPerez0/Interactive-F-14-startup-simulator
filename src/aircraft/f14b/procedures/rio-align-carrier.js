@@ -5,9 +5,16 @@ export const meta = { id:'rio-carrier', crew:'rio', variant:'carrier',
                       name:'INS alignment · carrier', view:'rioL' };
 
 export const MID = [
+{g:'2 · Carrier Datalink', t:'Open the kneeboard, page to <b>TACTICAL DATALINK SYSTEMS</b>',
+ note:'RSHIFT+K, then ] to page across. It lists the available hosts and their frequencies.',
+ tgt:'kb:datalink', done:s=>s.kb.open&&s.kb.page===1},
 {g:'2 · Carrier Datalink', t:'Datalink power — <b>ON</b>',
- note:'Kneeboard TACTICAL DATALINK SYSTEMS gives the host. For CVN-74 the frequency is 320.90 — set the wheels to 20.9, the 3 is fixed. Wheels are not modelled here.',
  tgt:'dlPower', view:'rioR', done:s=>s.sw.dlPower==='on'},
+{g:'2 · Carrier Datalink', t:'Frequency wheels — <b>20.9</b> for CVN-74 (320.90)',
+ note:'The leading 3 is preset and cannot be changed.',
+ tgt:'dlFreq', view:'rioR', done:s=>s.sw.dlFreq==='209'},
+{g:'2 · Carrier Datalink', t:'Close the kneeboard',
+ tgt:'kb:datalink', done:s=>!s.kb.open},
 {g:'2 · Carrier Datalink', t:'Datalink mode — <b>CAINS / WAYPT</b>',
  note:'Lets the jet talk to the ship\'s Carrier Aircraft Inertial Navigation System.',
  tgt:'dlModeSw', view:'rioR', done:s=>s.sw.dlModeSw==='cains'},

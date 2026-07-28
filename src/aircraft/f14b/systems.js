@@ -58,10 +58,26 @@ export function initState(S, sw) {
     ins:{ mode:null, t:0, complete:false },
     radalt:{ t:0, bitDone:false, value:0 },
     cadcReset:false, insHungWarned:false, rioSeat:false, autoT:0, autoI:0,
-    rio:{ wcsT:0, wcsUp:false, msg:'ownac', capField:null, capSign:null, capDigits:'',
+    rio:{ wcsT:0, wcsUp:false, msg:'ownac', cleared:false,
+          capField:null, capSign:null, capDigits:'',
           capLine:'', entered:{ lat:false, lon:false, alt:false, mag:false } },
     dl:{ mode:false, host:false },
   });
+}
+
+/* Which CAP key the checklist should point at next. Walks the keystroke
+   sequence — CLEAR, field, N-E, each digit in turn, ENTER — so the cue ring
+   advances as you type instead of sitting on one button the whole time. */
+const CAP_FIELD_KEY = { lat:'cap1', lon:'cap6', alt:'cap4', mag:'cap8' };
+
+export function capCue(S, field, digits) {
+  const R = S.rio;
+  if (field === 'mag' && R.msg !== 'magvar') return 'msgMagVar';
+  if (field !== 'mag' && !R.cleared) return 'capClear';
+  if (R.capField !== field) return CAP_FIELD_KEY[field];
+  if (!R.capSign) return 'capNE';
+  if (R.capDigits.length < digits.length) return 'cap' + digits[R.capDigits.length];
+  return 'capEnter';
 }
 
 export function insPct(S) {
@@ -153,7 +169,7 @@ export function cap(sim, id) {
     const NAME ={lat:'LAT', lon:'LONG', alt:'ALT', mag:'MAG VAR HDG'};
 
     if(id==='msgMagVar'){ R.msg='magvar'; sim.emit('CAP message — MAG VAR HDG.','radio'); }
-    else if(id==='capClear'){ R.capField=null; R.capSign=null; R.capDigits=''; }
+    else if(id==='capClear'){ R.capField=null; R.capSign=null; R.capDigits=''; R.cleared=true; }
     else if(id==='capNE'){ R.capSign='NE'; }
     else if(id==='capSW'){ R.capSign='SW'; }
     else if(id==='capEnter'){
@@ -168,7 +184,7 @@ export function cap(sim, id) {
       } else {
         R.entered[f]=true;
         sim.emit(NAME[f]+' entered.','good');
-        R.capField=null; R.capSign=null; R.capDigits='';
+        R.capField=null; R.capSign=null; R.capDigits=''; R.cleared=false;
       }
     }
     else {

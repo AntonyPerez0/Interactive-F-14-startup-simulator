@@ -6,13 +6,15 @@
 import { $, el, toast } from './dom.js';
 import { createSim } from './sim.js';
 import { createViews } from './views.js';
-import { createKneeboard } from './kneeboard.js';
+import { createChecklist } from './checklist.js';
+import { createKneecard } from './kneecard.js';
 import { byId } from '../aircraft/registry.js';
 
 const ac  = byId(new URLSearchParams(location.search).get('aircraft') || 'f14b');
 const sim = createSim(ac);
 const V   = createViews(sim, ac);
-const K   = createKneeboard(sim, ac);
+const K   = createChecklist(sim, ac);
+const KB  = createKneecard(sim, ac);
 
 sim.on((m, k) => toast(m, k));
 
@@ -95,6 +97,7 @@ function hardReset(procedure) {
   K.resetProgress();
   if (procedure) K.setProcedure(procedure);
   else K.build();
+  KB.render();
   $('#timechip').textContent = '1×';
   $('#timechip').classList.remove('warn');
   closeComms();
@@ -132,6 +135,7 @@ $('#world').addEventListener('click', e => onClick(e, 1));
 $('#world').addEventListener('contextmenu', e => onClick(e, -1));
 
 V.mount();
+KB.mount();
 V.tray.addEventListener('click', e => {
   const b = e.target.closest('button[data-tray]');
   if (b) sim.click(b.dataset.tray, 1);
@@ -231,11 +235,12 @@ $('#modechip').onclick = () => {
   $('#modechip').classList.toggle('on', V.guided);
 };
 
+const isMenuTarget = t => !!t && (t.startsWith('comms:') || t.startsWith('kb:'));
+
 const hint = () => {
-  const st = K.current();
-  if (!st) return;
-  const tgt = st.tgt || '';
+  const tgt = K.target() || '';
   if (tgt.startsWith('comms:')) { openComms(tgt.split(':')[1]); return; }
+  if (tgt.startsWith('kb:'))    { KB.goto(tgt.split(':')[1]); return; }
   const c = ac.controls.find(x => x.id === tgt) || ac.gauges.find(x => x.id === tgt);
   if (!c) return;
   if (c.tray) {
@@ -246,7 +251,17 @@ const hint = () => {
   }
   const views = V.viewsOf(c).length ? V.viewsOf(c) : [c.view];
   if (!views.includes(V.view)) V.setView(views[0]);
-  V.centreOn(c);
+
+  // keep anything the control reads out on screen too, so you can watch the
+  // result while you work it — the CAP keypad and its TID line, for instance
+  const step = K.current();
+  const extra = [].concat(c.ctx || [], (step && step.ctx) || []);
+  const rects = [c];
+  extra.forEach(id => {
+    const r = ac.controls.find(x => x.id === id) || ac.gauges.find(x => x.id === id);
+    if (r && r.x != null && (r.view === V.view || V.viewsOf(r).includes(V.view))) rects.push(r);
+  });
+  V.frameOn(rects);
 };
 K.onHint = hint;
 
@@ -260,6 +275,7 @@ $('#btnScramble').onclick = () => {
   (picked.length ? picked : Object.keys(wrong).slice(0, 2)).forEach(k => { sim.S.sw[k] = wrong[k]; });
   toast('Cockpit scrambled — check before you start.', 'radio');
 };
+$('#btnKnee').onclick = () => KB.toggle();
 $('#btnEdit').onclick = () => V.setEdit(true);
 $('#edDone').onclick  = () => V.setEdit(false);
 $('#edCopy').onclick  = () => V.copyLayout();
@@ -300,7 +316,10 @@ window.addEventListener('keydown', e => {
   if (k === '\\') { e.preventDefault(); toggleComms('ground'); }
   else if (k === 'a') toggleComms('jester');
   else if (k === 'h') hint();
-  else if (k === 'escape') { closeComms(); V.setEdit(false); }
+  else if (k === 'escape') { closeComms(); KB.toggle(false); V.setEdit(false); }
+  else if (k === 'k' && e.shiftKey) { e.preventDefault(); KB.toggle(); }
+  else if (k === '[') KB.step(-1);
+  else if (k === ']') KB.step(1);
   else if (k === 'f') V.fit();
   else if (/^[1-9]$/.test(k)) {
     const v = ac.views.filter(v => v.crew === crew)[+k - 1];
@@ -317,8 +336,8 @@ function frame(now) {
   last = now;
   sim.tick(dt);
   K.check();
-  const st = K.current();
-  V.render(st && st.tgt && !st.tgt.startsWith('comms:') ? st.tgt : null);
+  const tgt = K.target();
+  V.render(isMenuTarget(tgt) ? null : tgt);
   K.render();
 
   const S = sim.S;

@@ -49,7 +49,8 @@ index.html                     shell; all chrome is generated from the aircraft
 src/core/                      everything aircraft-agnostic
   sim.js                       switch state machine, event bus, tick driver
   views.js                     photos, pan/zoom, hotspots, instruments, calibration
-  kneeboard.js                 checklist gating, progress, completion card
+  checklist.js                 step gating, progress, completion card
+  kneecard.js                  the in-game kneeboard (RSHIFT+K, page with [ and ])
   app.js                       bootstrap, seats, tabs, radio menus, frame loop
   dom.js  style.css
 src/aircraft/
@@ -85,7 +86,45 @@ footer automatically.
 
 A step is just `done(state) -> boolean`. Steps are gated in order, so one whose
 condition already holds on a cold jet still waits its turn instead of passing
-for free. `tgt` names the control the **Show me** button should highlight.
+for free.
+
+A control may also declare `ctx`, naming a readout that should stay on screen
+when **Show me** frames it — the CAP keys do this so the TID line showing what
+you have typed stays visible while you type. Framing fits everything named at
+once rather than zooming to a fixed level.
+
+`tgt` names the control the cue ring and the **Show me** button point at. It can
+also be a function of state, which is how a multi-press sequence walks the cue
+from one key to the next:
+
+```js
+{ n:9, g:'2 · Present Position', t:'Enter latitude — <b>N 25°01.4′</b>',
+  tgt: s => capCue(s, 'lat', '25014'),
+  done: s => s.rio.entered.lat },
+```
+
+## The kneeboard
+
+`RSHIFT+K` opens it, `[` and `]` page through it. It is rendered from
+`kneeboard.pages` on the aircraft module rather than being an image, so the
+figures printed on it are the same ones the aircraft will accept — a test
+actually types the printed coordinates into the CAP and fails if they are
+rejected.
+
+```js
+kneeboard: {
+  pages: [
+    { id:'ground', title:'GROUND SETTINGS',
+      rows: [['LATITUDE', "25°01'4  NORTH"], ...],
+      foot: 'Degrees, minutes and TENTHS of a minute — not seconds.' },
+    { id:'datalink', title:'TACTICAL DATALINK SYSTEMS',
+      table: { head:['HOST','FREQ MHz','WHEELS'], rows:[[...]] } },
+  ],
+}
+```
+
+A step points at a page with `tgt:'kb:ground'`, the same way `tgt:'comms:ground'`
+points at a radio menu.
 
 ## Adding an aircraft
 

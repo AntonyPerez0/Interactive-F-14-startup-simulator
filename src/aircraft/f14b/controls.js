@@ -1,8 +1,7 @@
 /* ============================================================
    F-14B · CONTROLS
    Coordinates are pixels in the 1920x1080 space of each photo.
-   Anything marked (est) was placed by feature detection without
-   visual confirmation — check those first in Calibrate mode.
+   Positions below were verified in Calibrate mode against the photos.
 
    view    'front' | 'consoles'      pilot
            'pilotBoth'               the centre panel, in both pilot photos
@@ -144,19 +143,19 @@ export const controls = [
   /* ================= RIO · left console =================================== */
   /* CAP keyboard. Grid taken from the printed legends: columns at
      398/444/492/540/588, rows at 101/145/192. */
-  { id:'capClear', view:'rioL', kind:'push', x:382, y:86, w:44, h:30,
+  { id:'capClear', view:'rioL', kind:'push', ctx:'dgCap_rioL', x:380, y:90, w:44, h:30,
     name:'CAP CLEAR', states:['out','in'], lab:{out:'CLEAR',in:'CLEAR'}, init:'out' },
-  { id:'capSW', view:'rioL', kind:'push', x:462, y:86, w:32, h:30,
+  { id:'capSW', view:'rioL', kind:'push', ctx:'dgCap_rioL', x:455, y:88, w:32, h:30,
     name:'CAP S / W', states:['out','in'], lab:{out:'S-W',in:'S-W'}, init:'out' },
-  { id:'capNE', view:'rioL', kind:'push', x:508, y:86, w:32, h:30,
+  { id:'capNE', view:'rioL', kind:'push', ctx:'dgCap_rioL', x:508, y:88, w:32, h:30,
     name:'CAP N / E', states:['out','in'], lab:{out:'N-E',in:'N-E'}, init:'out' },
-  { id:'capEnter', view:'rioL', kind:'push', x:574, y:86, w:48, h:30,
+  { id:'capEnter', view:'rioL', kind:'push', ctx:'dgCap_rioL', x:568, y:88, w:48, h:30,
     name:'CAP ENTER', states:['out','in'], lab:{out:'ENTER',in:'ENTER'}, init:'out' },
-  ...capKey('cap1', 377, 129, '1 · LAT'),  ...capKey('cap2', 423, 129, '2 · NPR'),
-  ...capKey('cap3', 471, 129, '3 · SPD'),  ...capKey('cap4', 519, 129, '4 · ALT'),
-  ...capKey('cap5', 567, 129, '5 · RNG'),  ...capKey('cap6', 377, 176, '6 · LONG'),
-  ...capKey('cap7', 423, 176, '7'),        ...capKey('cap8', 471, 176, '8 · HDG'),
-  ...capKey('cap9', 519, 176, '9'),        ...capKey('cap0', 567, 176, '0 · BRG'),
+  ...capKey('cap1', 375, 132, '1 · LAT'),  ...capKey('cap2', 423, 132, '2 · NPR'),
+  ...capKey('cap3', 471, 132, '3 · SPD'),  ...capKey('cap4', 520, 132, '4 · ALT'),
+  ...capKey('cap5', 569, 133, '5 · RNG'),  ...capKey('cap6', 377, 177, '6 · LONG'),
+  ...capKey('cap7', 426, 178, '7'),        ...capKey('cap8', 475, 180, '8 · HDG'),
+  ...capKey('cap9', 523, 178, '9'),        ...capKey('cap0', 571, 179, '0 · BRG'),
 
   /* CAP message select buttons — two columns of five, Hough-measured */
   { id:'msgOwnAC', view:'rioL', kind:'lamp', x:358, y:254, w:32, h:32,
@@ -177,61 +176,65 @@ export const controls = [
     name:'VIS FIX', color:'green', watch:'none' },
   { id:'msgFixEnable', view:'rioL', kind:'lamp', x:595, y:367, w:32, h:32,
     name:'FIX ENABLE', color:'green', watch:'none' },
-  { id:'msgMagVar', view:'rioL', kind:'push', x:595, y:404, w:32, h:32,
+  { id:'msgMagVar', view:'rioL', kind:'push', ctx:'dgCap_rioL', x:595, y:404, w:32, h:32,
     name:'MAG VAR HDG', states:['out','in'], lab:{out:'MAG VAR',in:'MAG VAR'}, init:'out' },
 
   { id:'capCategory', view:'rioL', kind:'knob', x:467, y:472, w:56, h:56,
     name:'CAP CATEGORY', states:['nav','tacdata','spl','dl','bit','tgtdata'],
     lab:{nav:'NAV',tacdata:'TAC DATA',spl:'SPL',dl:'D/L',bit:'BIT',tgtdata:'TGT DATA'}, init:'nav' },
-  { id:'liquidCool', view:'rioL', kind:'sw', x:6, y:262, w:34, h:44,
-    name:'LIQUID COOLING (est)', states:['off','fwd'], lab:{off:'OFF',fwd:'FWD / ON'}, init:'off' },
-  { id:'rioIcs', view:'rioL', kind:'sw', x:592, y:760, w:34, h:46,
-    name:'RIO ICS (est)', states:['cold','hot'], lab:{cold:'COLD MIC',hot:'HOT MIC'}, init:'cold' },
-  { id:'rioOxygen', view:'rioL', kind:'sw', x:392, y:996, w:32, h:44,
-    name:'RIO OXYGEN (est)', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
+  // sits hard against the left edge of the photo; the -1 is deliberate
+  { id:'liquidCool', view:'rioL', kind:'sw', x:-1, y:280, w:34, h:44,
+    name:'LIQUID COOLING', states:['off','fwd'], lab:{off:'OFF',fwd:'FWD / ON'}, init:'off' },
+  { id:'rioIcs', view:'rioL', kind:'sw', x:595, y:751, w:34, h:46,
+    name:'RIO ICS', states:['cold','hot'], lab:{cold:'COLD MIC',hot:'HOT MIC'}, init:'cold' },
+  { id:'rioOxygen', view:'rioL', kind:'sw', x:403, y:997, w:32, h:44,
+    name:'RIO OXYGEN', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
   { id:'vuhfFunc', view:'rioL', kind:'knob', x:42, y:529, w:44, h:44, reverse:true,
     name:'V/UHF FUNCTION', states:['off','tr','trg','adf'],
     lab:{off:'OFF',tr:'T/R',trg:'T/R +G',adf:'ADF'}, init:'off' },
-  { id:'rioTacanFunc', view:'rioL', kind:'knob', x:222, y:679, w:60, h:60, reverse:true,
+  { id:'rioTacanFunc', view:'rioL', kind:'knob', x:223, y:680, w:60, h:60, reverse:true,
     name:'RIO TACAN FUNCTION', states:['off','rec','tr','aa','bcn'],
     lab:{off:'OFF',rec:'REC',tr:'T/R',aa:'A/A',bcn:'BCN'}, init:'off' },
 
   /* ================= RIO · centre panel =================================== */
-  { id:'navMode', view:'rioC', kind:'knob', x:712, y:465, w:64, h:64,
+  { id:'navMode', view:'rioC', kind:'knob', x:732, y:486, w:64, h:64,
     name:'NAV MODE SELECTOR', states:['off','gnd','align','cva','ins','cat','ahrs'],
     lab:{off:'OFF',gnd:'GND ALIGN',align:'ALIGN',cva:'CVA',ins:'INS',cat:'CAT',ahrs:'AHRS'}, init:'off' },
-  { id:'rioStbyAdi', view:'rioC', kind:'knob', x:320, y:440, w:64, h:64,
-    name:'RIO STANDBY ADI (est)', states:['caged','erect'], lab:{caged:'CAGED',erect:'ERECT'}, init:'caged' },
+  { id:'rioStbyAdi', view:'rioC', kind:'knob', x:236, y:532, w:64, h:64,
+    name:'RIO STANDBY ADI', states:['caged','erect'], lab:{caged:'CAGED',erect:'ERECT'}, init:'caged' },
 
   /* ================= RIO · right console ================================== */
-  { id:'irtvPower', view:'rioR', kind:'sw', x:476, y:760, w:36, h:64,
-    name:'IR / TV (TCS) POWER (est)', states:['off','stby','on'],
+  { id:'irtvPower', view:'rioR', kind:'sw', x:477, y:755, w:36, h:64,
+    name:'IR / TV (TCS) POWER', states:['off','stby','on'],
     lab:{off:'OFF',stby:'STBY',on:'ON'}, init:'off' },
-  { id:'wcsMode', view:'rioR', kind:'sw', x:698, y:766, w:40, h:64,
+  { id:'wcsMode', view:'rioR', kind:'sw', x:700, y:769, w:40, h:64,
     name:'WCS MODE', states:['off','stby','xmt'],
     lab:{off:'OFF',stby:'STBY',xmt:'WCS XMT'}, init:'off' },
-  { id:'alr67Power', view:'rioR', kind:'sw', x:1486, y:127, w:36, h:44,
+  { id:'alr67Power', view:'rioR', kind:'sw', x:1485, y:139, w:36, h:44,
     name:'ALR-67 RWR POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
   { id:'decmMode', view:'rioR', kind:'knob', x:1384, y:274, w:72, h:72,
     name:'ALQ-126 DECM MODE', states:['off','stby','rec','rpt','act'],
     lab:{off:'OFF',stby:'STBY',rec:'REC',rpt:'RPT',act:'ACT'}, init:'off' },
-  { id:'ale39Mode', view:'rioR', kind:'sw', x:1508, y:488, w:36, h:70,
-    name:'ALE-39 PWR / MODE (est)', states:['off','man','auto'],
+  { id:'ale39Mode', view:'rioR', kind:'sw', x:1505, y:493, w:36, h:70,
+    name:'ALE-39 PWR / MODE', states:['off','man','auto'],
     lab:{off:'OFF',man:'MAN',auto:'AUTO (CHAFF)'}, init:'off' },
-  { id:'flareMode', view:'rioR', kind:'sw', x:1338, y:606, w:36, h:60,
+  { id:'flareMode', view:'rioR', kind:'sw', x:1336, y:607, w:36, h:60,
     name:'FLARE MODE', states:['pilot','norm','mult'],
     lab:{pilot:'PILOT',norm:'NORM',mult:'MULT'}, init:'norm' },
-  { id:'dlPower', view:'rioR', kind:'sw', x:1631, y:406, w:36, h:44,
-    name:'DATALINK POWER (est)', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
-  { id:'dlModeSw', view:'rioR', kind:'sw', x:1839, y:352, w:36, h:44,
-    name:'DATALINK MODE (est)', states:['tac','cains'],
+  { id:'dlPower', view:'rioR', kind:'sw', x:1632, y:395, w:36, h:44,
+    name:'DATALINK POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
+  { id:'dlModeSw', view:'rioR', kind:'sw', x:1840, y:336, w:36, h:44,
+    name:'DATALINK MODE', states:['tac','cains'],
     lab:{tac:'TAC',cains:'CAINS / WAYPT'}, init:'tac' },
-  { id:'iffMode4', view:'rioR', kind:'sw', x:1621, y:845, w:36, h:48,
-    name:'IFF MODE 4 POWER (est)', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
+  { id:'dlFreq', view:'rioR', kind:'knob', x:1718, y:232, w:90, h:62,
+    name:'DATALINK FREQ WHEELS (est)', states:['000','209','092'],
+    lab:{'000':'0 0 0', '209':'20.9 · CVN-74', '092':'09.2 · E-2C'}, init:'000' },
+  { id:'iffMode4', view:'rioR', kind:'sw', x:1621, y:836, w:36, h:48,
+    name:'IFF MODE 4 POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
 ];
 
 /* the CAP number keys are dual purpose: first press picks the field, then digits */
 function capKey(id, x, y, name) {
-  return [{ id, view:'rioL', kind:'push', x, y, w:42, h:32, name,
+  return [{ id, view:'rioL', kind:'push', x, y, w:42, h:32, name, ctx:'dgCap_rioL',
             states:['out','in'], lab:{out:name.split(' · ')[0], in:name[0]}, init:'out' }];
 }

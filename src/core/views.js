@@ -105,7 +105,7 @@ export function createViews(sim, ac) {
             ? 'linear-gradient(180deg,#160b08,#0b0605 60%,#100807)'
             : 'linear-gradient(160deg,#0d100f,#050707 55%,#080a09)';
           n.style.boxShadow = 'inset 0 0 24px rgba(0,0,0,.92),inset 0 1px 0 rgba(255,255,255,.05)';
-          n.style.borderRadius = '5px';
+          n.style.borderRadius = g.round ? '50%' : '5px';
           n.style.transition = 'opacity .25s';
           n.style.pointerEvents = 'none';
           if (g.ins) n.appendChild(insPanel());
@@ -161,13 +161,23 @@ export function createViews(sim, ac) {
     apply() {
       $('#world').style.transform = `translate(${this.panX}px,${this.panY}px) scale(${this.zoom})`;
     },
-    centreOn(c) {
-      const st = $('#stage');
-      this.zoom = Math.max(this.zoom, 1.5);
-      this.panX = st.clientWidth / 2 - (c.x + (c.w || 40) / 2) * this.zoom;
-      this.panY = st.clientHeight / 2 - (c.y + (c.h || 40) / 2) * this.zoom;
+    /* Fit everything in `rects` on screen at once, rather than slamming the
+       zoom to a fixed level and centring on one control. That keeps a readout
+       in view while you work the keys that feed it. */
+    frameOn(rects, maxZoom = 1.35) {
+      const st = $('#stage'), pad = 70;
+      const x0 = Math.min(...rects.map(r => r.x)) - pad;
+      const y0 = Math.min(...rects.map(r => r.y)) - pad;
+      const x1 = Math.max(...rects.map(r => r.x + (r.w || 40))) + pad;
+      const y1 = Math.max(...rects.map(r => r.y + (r.h || 40))) + pad;
+      const fit = Math.min(st.clientWidth / 1920, st.clientHeight / 1080);
+      const z = Math.min(maxZoom, st.clientWidth / (x1 - x0), st.clientHeight / (y1 - y0));
+      this.zoom = Math.max(z, fit);
+      this.panX = st.clientWidth / 2 - ((x0 + x1) / 2) * this.zoom;
+      this.panY = st.clientHeight / 2 - ((y0 + y1) / 2) * this.zoom;
       this.apply();
     },
+    centreOn(c) { this.frameOn([c]); },
 
     /* ---------------- calibration ---------------- */
     setEdit(on) {
@@ -299,10 +309,10 @@ function insPanel() {
     '<div class="insrow"><span>LN 25&deg;01\'4</span><span>LE 55&deg;22\'6</span></div>' +
     '<div class="instrack"></div>' +
     // full fine marker at the end of the track
-    '<div style="position:absolute;left:93%;top:28%;width:2px;height:11px;' +
+    '<div style="position:absolute;left:93%;top:41%;width:2px;height:11px;' +
       'background:currentColor;transform:translateX(-50%)"></div>' +
     // the progress caret walks the track; the number is minutes in tenths
-    '<div data-ins="caret" style="position:absolute;top:17%;left:7%;transform:translateX(-50%);' +
+    '<div data-ins="caret" style="position:absolute;top:30%;left:7%;transform:translateX(-50%);' +
       'text-align:center;line-height:1;transition:left .35s linear">' +
       '<div data-ins="num" style="font-size:11px">00</div>' +
       '<div data-ins="chev" style="font-size:15px;margin-top:1px">\u2304</div>' +

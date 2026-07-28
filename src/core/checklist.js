@@ -1,5 +1,5 @@
 /* ============================================================
-   CORE · KNEEBOARD
+   CORE · CHECKLIST
    Renders whichever procedure is active and ticks its steps off
    by watching aircraft state. Steps are gated in order, so a step
    whose condition happens to hold on a cold jet still waits its
@@ -7,7 +7,7 @@
    ============================================================ */
 import { $, el, toast } from './dom.js';
 
-export function createKneeboard(sim, ac) {
+export function createChecklist(sim, ac) {
   const K = {
     sim, ac,
     procedure: ac.procedures[0],
@@ -81,6 +81,15 @@ export function createKneeboard(sim, ac) {
     },
 
     current() { return this.steps()[this.curStep]; },
+
+    /* a step's tgt may be a string or a function of state, so a multi-press
+       sequence can walk the cue from one control to the next as you go */
+    target() {
+      const st = this.current();
+      if (!st || !st.tgt) return null;
+      const t = typeof st.tgt === 'function' ? st.tgt(sim.S) : st.tgt;
+      return t || null;
+    },
 
     skip() {
       this.sync()[this.curStep] = true;
