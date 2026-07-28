@@ -1,0 +1,329 @@
+/* ============================================================
+   CORE · APP
+   Wires everything together. Reads its whole layout from the
+   aircraft module, so adding a jet needs no changes in here.
+   ============================================================ */
+import { $, el, toast } from './dom.js';
+import { createSim } from './sim.js';
+import { createViews } from './views.js';
+import { createKneeboard } from './kneeboard.js';
+import { byId } from '../aircraft/registry.js';
+
+const ac  = byId(new URLSearchParams(location.search).get('aircraft') || 'f14b');
+const sim = createSim(ac);
+const V   = createViews(sim, ac);
+const K   = createKneeboard(sim, ac);
+
+sim.on((m, k) => toast(m, k));
+
+/* ---------------- chrome built from the aircraft ---------------- */
+const crews = [...new Set(ac.views.map(v => v.crew))];
+const crewLabel = { pilot: 'Pilot', rio: 'RIO' };
+let crew = crews[0];
+
+document.querySelector('[data-brand]').textContent = ac.name.split(' ')[0];
+document.querySelector('[data-gate-sub]').textContent = ac.source;
+
+const seats = $('#seats');
+crews.forEach((c, i) => {
+  const b = el('button', 'seat' + (i === 0 ? ' on' : ''));
+  b.dataset.crew = c;
+  b.textContent = crewLabel[c] || c;
+  b.addEventListener('click', () => setCrew(c));
+  seats.appendChild(b);
+});
+if (crews.length < 2) seats.style.display = 'none';
+
+const tabs = $('#tabs');
+ac.views.forEach((v, i) => {
+  const b = el('button', 'tab' + (i === 0 ? ' on' : ''));
+  b.dataset.view = v.id;
+  b.dataset.crew = v.crew;
+  b.textContent = v.label;
+  b.style.display = v.crew === crew ? '' : 'none';
+  b.addEventListener('click', () => V.setView(v.id));
+  tabs.appendChild(b);
+});
+
+/* keep references rather than re-querying the DOM every frame */
+const strip = $('#strip');
+const stripCells = ac.strip.map(c => {
+  const cell = el('div', 'cell');
+  const k = el('div', 'k'); k.textContent = c.k;
+  const v = el('div', 'v');
+  cell.appendChild(k); cell.appendChild(v);
+  strip.appendChild(cell);
+  return { read: c.read, node: v };
+});
+
+const cautionCell = el('div', 'cell');
+cautionCell.style.cssText = 'flex:1 1 auto;border-right:none';
+const cautionLabel = el('div', 'k'); cautionLabel.textContent = 'Caution panel';
+const cautionBox = el('div'); cautionBox.id = 'cautions';
+cautionCell.appendChild(cautionLabel); cautionCell.appendChild(cautionBox);
+strip.appendChild(cautionCell);
+const cautionLamps = ac.cautions.map(([id, label]) => {
+  const d = el('div', 'cl');
+  d.dataset.c = id;
+  d.textContent = label;
+  cautionBox.appendChild(d);
+  return { id, node: d };
+});
+
+/* ---------------- procedures ---------------- */
+const proceduresFor = c => ac.procedures.filter(p => p.meta.crew === c);
+let variantIdx = 0;
+
+function setCrew(c) {
+  if (c === crew) return;
+  crew = c;
+  document.querySelectorAll('.seat').forEach(b => b.classList.toggle('on', b.dataset.crew === c));
+  document.querySelectorAll('.tab').forEach(b => { b.style.display = b.dataset.crew === c ? '' : 'none'; });
+  const list = proceduresFor(c);
+  $('#btnVariant').style.display = list.length > 1 ? '' : 'none';
+  variantIdx = 0;
+  hardReset(list[0]);
+  V.setView(ac.views.find(v => v.crew === c).id);
+  toast(c === 'rio'
+    ? 'Back seat. The front-seater runs his own start-up — listen for his calls.'
+    : 'Front seat. Jester handles the RIO side.', 'radio');
+}
+
+function hardReset(procedure) {
+  sim.reset();
+  sim.S.rioSeat = (crew === 'rio');
+  K.resetProgress();
+  if (procedure) K.setProcedure(procedure);
+  else K.build();
+  $('#timechip').textContent = '1×';
+  $('#timechip').classList.remove('warn');
+  closeComms();
+}
+
+$('#btnVariant').onclick = () => {
+  const list = proceduresFor(crew);
+  variantIdx = (variantIdx + 1) % list.length;
+  const p = list[variantIdx];
+  $('#btnVariant').textContent = p.meta.variant
+    ? p.meta.variant[0].toUpperCase() + p.meta.variant.slice(1)
+    : p.meta.name;
+  hardReset(p);
+  toast(p.meta.name, 'radio');
+};
+
+/* ---------------- input ---------------- */
+const stage = $('#stage');
+stage.addEventListener('contextmenu', e => e.preventDefault());
+
+const onClick = (e, dir) => {
+  const hs = e.target.closest('.hs');
+  if (!hs || V.edit) return;
+  e.preventDefault();
+  const c = ac.controls.find(x => x.id === hs.dataset.id);
+  if (!c || !c.states) return;
+  let frac = null;
+  if (c.stack === 'v') {
+    const r = hs.getBoundingClientRect();
+    frac = (e.clientY - r.top) / r.height;
+  }
+  sim.click(c.id, dir, frac);
+};
+$('#world').addEventListener('click', e => onClick(e, 1));
+$('#world').addEventListener('contextmenu', e => onClick(e, -1));
+
+V.mount();
+V.tray.addEventListener('click', e => {
+  const b = e.target.closest('button[data-tray]');
+  if (b) sim.click(b.dataset.tray, 1);
+});
+V.tray.addEventListener('contextmenu', e => {
+  const b = e.target.closest('button[data-tray]');
+  if (b) { e.preventDefault(); sim.click(b.dataset.tray, -1); }
+});
+
+/* pan, zoom, drag-to-calibrate */
+let drag = null;
+stage.addEventListener('pointerdown', e => {
+  if (V.edit) {
+    const hs = e.target.closest('.hs, .gauge, .digi');
+    if (hs) {
+      drag = { mode:'edit', node:hs, sx:e.clientX, sy:e.clientY,
+               ox:parseFloat(hs.style.left) || 0, oy:parseFloat(hs.style.top) || 0 };
+      e.preventDefault();
+      return;
+    }
+  }
+  if (e.target.closest('#comms,#zoompad,#tray,#editbar,#gate,#done')) return;
+  drag = { mode:'pan', sx:e.clientX, sy:e.clientY, ox:V.panX, oy:V.panY, moved:false };
+});
+window.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (drag.mode === 'pan') {
+    V.panX = drag.ox + (e.clientX - drag.sx);
+    V.panY = drag.oy + (e.clientY - drag.sy);
+    if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) drag.moved = true;
+    V.apply();
+  } else {
+    const nx = drag.ox + (e.clientX - drag.sx) / V.zoom;
+    const ny = drag.oy + (e.clientY - drag.sy) / V.zoom;
+    drag.node.style.left = Math.round(nx) + 'px';
+    drag.node.style.top  = Math.round(ny) + 'px';
+    const id = drag.node.dataset.id;
+    const rec = ac.controls.find(x => x.id === id) || ac.gauges.find(x => x.id === id);
+    if (rec) { rec.x = Math.round(nx); rec.y = Math.round(ny); }
+  }
+});
+const endDrag = () => {
+  if (drag && drag.mode === 'pan' && drag.moved) {
+    window.addEventListener('click', ev => ev.stopPropagation(), { capture:true, once:true });
+  }
+  drag = null;
+};
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = stage.getBoundingClientRect();
+  V.zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+}, { passive:false });
+
+let pinch = null;
+stage.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                         e.touches[0].clientY - e.touches[1].clientY);
+    pinch = { d, z:V.zoom };
+  }
+}, { passive:true });
+stage.addEventListener('touchmove', e => {
+  if (pinch && e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                         e.touches[0].clientY - e.touches[1].clientY);
+    const r = stage.getBoundingClientRect();
+    V.setZoom(pinch.z * (d / pinch.d),
+      (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
+      (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top);
+  }
+}, { passive:true });
+stage.addEventListener('touchend', () => { pinch = null; });
+
+$('#zin').onclick  = () => V.zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 1.25);
+$('#zout').onclick = () => V.zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 0.8);
+$('#zfit').onclick = () => V.fit();
+window.addEventListener('resize', () => V.fit());
+
+/* ---------------- chips and buttons ---------------- */
+$('#timechip').onclick = () => {
+  const r = sim.S.rate;
+  sim.S.rate = r === 1 ? 4 : r === 4 ? 16 : 1;
+  $('#timechip').textContent = sim.S.rate + '×';
+  $('#timechip').classList.toggle('warn', sim.S.rate > 1);
+};
+$('#labelchip').onclick = () => {
+  V.labels = !V.labels;
+  document.body.classList.toggle('labels', V.labels);
+  $('#labelchip').classList.toggle('on', V.labels);
+};
+$('#modechip').onclick = () => {
+  V.guided = !V.guided;
+  $('#modechip').textContent = V.guided ? 'Guided' : 'Free play';
+  $('#modechip').classList.toggle('on', V.guided);
+};
+
+const hint = () => {
+  const st = K.current();
+  if (!st) return;
+  const tgt = st.tgt || '';
+  if (tgt.startsWith('comms:')) { openComms(tgt.split(':')[1]); return; }
+  const c = ac.controls.find(x => x.id === tgt) || ac.gauges.find(x => x.id === tgt);
+  if (!c) return;
+  if (c.tray) {
+    V.nodes['tray:' + c.id]?.animate(
+      [{ boxShadow:'0 0 0 0 rgba(255,176,46,.7)' }, { boxShadow:'0 0 0 14px rgba(255,176,46,0)' }],
+      { duration:900, iterations:2 });
+    return;
+  }
+  const views = V.viewsOf(c).length ? V.viewsOf(c) : [c.view];
+  if (!views.includes(V.view)) V.setView(views[0]);
+  V.centreOn(c);
+};
+K.onHint = hint;
+
+$('#btnHint').onclick  = hint;
+$('#btnSkip').onclick  = () => K.skip();
+$('#btnReset').onclick = () => { hardReset(); toast('Cold and dark.', 'good'); };
+$('#btnScramble').onclick = () => {
+  hardReset();
+  const wrong = ac.scramble || {};
+  const picked = Object.keys(wrong).filter(() => Math.random() < 0.6);
+  (picked.length ? picked : Object.keys(wrong).slice(0, 2)).forEach(k => { sim.S.sw[k] = wrong[k]; });
+  toast('Cockpit scrambled — check before you start.', 'radio');
+};
+$('#btnEdit').onclick = () => V.setEdit(true);
+$('#edDone').onclick  = () => V.setEdit(false);
+$('#edCopy').onclick  = () => V.copyLayout();
+$('#doneStay').onclick  = () => $('#done').classList.add('gone');
+$('#doneAgain').onclick = () => { $('#done').classList.add('gone'); $('#btnReset').click(); };
+$('#gateStart').onclick = () => { $('#gate').classList.add('gone'); K.runStart = sim.S.t; };
+$('#gateFree').onclick  = () => { $('#gate').classList.add('gone'); $('#modechip').click(); };
+
+/* ---------------- radio menus ---------------- */
+let commsMenu = null;
+function openComms(menu, page = 'root') {
+  const m = ac.menus[menu];
+  if (!m) return;
+  commsMenu = menu;
+  $('#commsTitle').textContent = m.title;
+  const body = $('#commsBody');
+  body.innerHTML = '';
+  m[page].forEach((item, i) => {
+    const r = el('button', 'row' + (item.back ? ' back' : ''));
+    r.innerHTML = `<kbd>${item.k}</kbd>${item.t}`;
+    r.onclick = () => {
+      if (item.act) { ac.radio(sim, item.act); closeComms(); }
+      else if (item.go) openComms(menu, item.go);
+    };
+    body.appendChild(r);
+  });
+  $('#comms').classList.add('open');
+}
+function closeComms() { $('#comms').classList.remove('open'); commsMenu = null; }
+function toggleComms(menu) {
+  if ($('#comms').classList.contains('open') && commsMenu === menu) closeComms();
+  else openComms(menu);
+}
+
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === '\\') { e.preventDefault(); toggleComms('ground'); }
+  else if (k === 'a') toggleComms('jester');
+  else if (k === 'h') hint();
+  else if (k === 'escape') { closeComms(); V.setEdit(false); }
+  else if (k === 'f') V.fit();
+  else if (/^[1-9]$/.test(k)) {
+    const v = ac.views.filter(v => v.crew === crew)[+k - 1];
+    if (v) V.setView(v.id);
+  }
+});
+
+/* ---------------- frame loop ---------------- */
+K.build();
+V.fit();
+let last = performance.now();
+function frame(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+  sim.tick(dt);
+  K.check();
+  const st = K.current();
+  V.render(st && st.tgt && !st.tgt.startsWith('comms:') ? st.tgt : null);
+  K.render();
+
+  const S = sim.S;
+  stripCells.forEach(c => { c.node.textContent = c.read(S); });
+  cautionLamps.forEach(c => { c.node.classList.toggle('on', !!S.caution[c.id]); });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
