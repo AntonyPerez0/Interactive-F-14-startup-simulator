@@ -342,6 +342,7 @@ body.edit #editbar{display:flex}
       <button class="btn pri" id="btnHint">Show me (H)</button>
       <button class="btn" id="btnSkip">Skip step</button>
       <button class="btn" id="btnReset">Cold &amp; dark</button>
+      <button class="btn" id="btnScramble" title="Reset, then mis-set the switches you are supposed to check">Scramble</button>
       <button class="btn" id="btnEdit">Calibrate</button>
     </div>
   </div>
@@ -398,12 +399,23 @@ const CONTROLS = [
    name:'HUD POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off'},
   {id:'hsdPower', view:'panel', kind:'sw', x:1781,y:948,w:36,h:48,
    name:'HSD POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off'},
-  {id:'hsdMode', view:'panel', kind:'knob', x:1650,y:878,w:34,h:34,
-   name:'HSD MODE', states:['nav','tid','oride','ecm'],
-   lab:{nav:'NAV',tid:'TID',oride:'ORIDE',ecm:'ECM'}, init:'nav'},
-  {id:'vdiMode', view:'panel', kind:'knob', x:1648,y:839,w:38,h:38,
-   name:'VDI MODE', states:['norm','ils','acl','awl'],
-   lab:{norm:'NORM',ils:'ILS',acl:'ACL',awl:'AWL'}, init:'norm'},
+  {id:'masterMode', view:'panel', kind:'push', x:1651,y:762,w:38,h:184, stack:'v',
+   name:'DISPLAY MASTER MODE', states:['to','cruise','aa','ag','ldg'],
+   lab:{to:'T.O.',cruise:'CRUISE',aa:'A/A',ag:'A/G',ldg:'LDG'}, init:'to'},
+  {id:'hudDeclutter', view:'panel', kind:'sw', x:1713,y:792,w:36,h:34,
+   name:'HUD DECLUTTER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off'},
+  {id:'hudAwl', view:'panel', kind:'sw', x:1778,y:792,w:36,h:34,
+   name:'HUD AWL MODE', states:['acl','ils'], lab:{ils:'ILS',acl:'ACL'}, init:'ils'},
+  {id:'vdiMode', view:'panel', kind:'sw', x:1711,y:852,w:36,h:34,
+   name:'VDI MODE', states:['norm','tv'], lab:{norm:'NORM',tv:'TV'}, init:'norm'},
+  {id:'vdiAwl', view:'panel', kind:'sw', x:1770,y:854,w:36,h:34,
+   name:'VDI AWL MODE', states:['acl','ils'], lab:{ils:'ILS',acl:'ACL'}, init:'ils'},
+  {id:'hsdMode', view:'panel', kind:'sw', x:1712,y:888,w:36,h:34,
+   name:'HSD MODE', states:['tid','nav'], lab:{nav:'NAV',tid:'TID'}, init:'nav'},
+  {id:'hsdEcm', view:'panel', kind:'sw', x:1779,y:919,w:36,h:28,
+   name:'HSD ECM', states:['off','oride'], lab:{oride:'ORIDE',off:'OFF'}, init:'off'},
+  {id:'masterReset', view:'panel', kind:'push', x:684,y:1033,w:32,h:32,
+   name:'MASTER RESET', states:['out','in'], lab:{out:'—',in:'PRESSED'}, init:'out'},
 
   /* ---- front panel: misc ---- */
   {id:'radAltKnob', view:'panel', kind:'knob', x:232,y:582,w:34,h:34,
@@ -413,7 +425,7 @@ const CONTROLS = [
   {id:'antiSkid', view:'panel', kind:'sw', x:614,y:1000,w:36,h:48,
    name:'ANTI-SKID / SPOILER BK', states:['spoiler','off','both'],
    lab:{both:'BOTH',off:'OFF',spoiler:'SPLR BK'}, init:'both'},
-  {id:'wingExtTrans', view:'panel', kind:'sw', x:262,y:915,w:36,h:54,
+  {id:'wingExtTrans', view:'panel', kind:'sw', x:260,y:1013,w:36,h:52,
    name:'WING/EXT TRANS', states:['off','auto','oride'],
    lab:{oride:'ORIDE',auto:'AUTO',off:'OFF'}, init:'off'},
   {id:'parkBrake', view:'panel', kind:'lever', x:22,y:857,w:102,h:88, updir:false,
@@ -430,8 +442,9 @@ const CONTROLS = [
    name:'RIGHT THROTTLE', states:['off','idle','mil'],
    lab:{off:'CUTOFF',idle:'IDLE',mil:'MIL'}, init:'off'},
   {id:'wingSweep', view:'console', kind:'lever', x:572,y:100,w:28,h:252, axis:'y',
-   name:'EMERG WING SWEEP HANDLE', states:['fwd','aft'],
-   lab:{aft:'OVERSWEEP',fwd:'FWD/AUTO'}, init:'fwd', updir:false},
+   name:'EMERG WING SWEEP HANDLE', states:['oversweep','fwd','detent'],
+   lab:{oversweep:'OVERSWEEP 68°',fwd:'FWD 20° (raised)',detent:'FWD 20° · IN DETENT'},
+   init:'oversweep'},
   {id:'engCrank', view:'console', kind:'sw', axis:'x', x:106,y:128,w:76,h:34,
    name:'ENGINE CRANK', states:['left','off','right'],
    lab:{left:'L',off:'OFF',right:'R'}, init:'off', spring:true},
@@ -446,17 +459,17 @@ const CONTROLS = [
   {id:'afcsYaw', view:'console', kind:'sw', x:261,y:543,w:34,h:58,
    name:'SAS YAW', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off'},
   {id:'uhfFunc', view:'console', kind:'knob', x:594,y:614,w:46,h:48,
-   name:'UHF 1 FUNCTION', states:['off','main','both'],
+   name:'UHF 1 FUNCTION (ARC-159)', reverse:true, states:['off','main','both'],
    lab:{off:'OFF',main:'MAIN',both:'BOTH'}, init:'off'},
   {id:'tacanFunc', view:'console', kind:'knob', x:588,y:810,w:52,h:60,
-   name:'TACAN FUNCTION', states:['off','rec','tr','aa','bcn'],
+   name:'TACAN FUNCTION', reverse:true, states:['off','rec','tr','aa','bcn'],
    lab:{off:'OFF',rec:'REC',tr:'T/R',aa:'A/A',bcn:'BCN'}, init:'off'},
 
   /* ---- console: right ---- */
-  {id:'masterGenL', view:'console', kind:'sw', x:1305,y:660,w:36,h:80,
+  {id:'masterGenL', view:'console', kind:'sw', x:1311,y:489,w:36,h:52,
    name:'L MASTER GEN', states:['test','off','norm'],
    lab:{norm:'NORM',off:'OFF/RST',test:'TEST'}, init:'norm'},
-  {id:'masterGenR', view:'console', kind:'sw', x:1375,y:660,w:36,h:80,
+  {id:'masterGenR', view:'console', kind:'sw', x:1391,y:489,w:36,h:52,
    name:'R MASTER GEN', states:['test','off','norm'],
    lab:{norm:'NORM',off:'OFF/RST',test:'TEST'}, init:'norm'},
   {id:'airSource', view:'console', kind:'push', x:1502,y:638,w:40,h:208, stack:'v',
@@ -465,9 +478,9 @@ const CONTROLS = [
   {id:'hydTransfer', view:'console', kind:'lever', x:1399,y:974,w:36,h:92,
    name:'HYD TRANSFER PUMP', states:['shutoff','norm'],
    lab:{norm:'NORM',shutoff:'SHUTOFF'}, init:'norm', updir:false},
-  {id:'emergFltHyd', view:'console', kind:'lever', x:1851,y:862,w:36,h:92,
-   name:'EMERG FLIGHT HYD', states:['auto','high'],
-   lab:{high:'HIGH',auto:'AUTO / LOW'}, init:'high'},
+  {id:'emergFltHyd', view:'console', kind:'lever', x:1851,y:855,w:36,h:106,
+   name:'EMERG FLIGHT HYD', states:['autolow','low','high'],
+   lab:{autolow:'AUTO / LOW',low:'LOW',high:'HIGH'}, init:'autolow'},
   {id:'extLights', view:'console', kind:'sw', x:1650,y:464,w:32,h:44,
    name:'POSITION LIGHTS', states:['dim','off','brt'],
    lab:{dim:'DIM',off:'OFF',brt:'BRT'}, init:'off'},
@@ -533,6 +546,8 @@ const GAUGES = [
    read:s=>'OIL '+Math.round(s.eng.L.oil)+'/'+Math.round(s.eng.R.oil)+' PSI'},
   {id:'dgHyd', view:'panel', kind:'chip', x:339,y:910,w:130,h:20, name:'HYD PRESSURE',
    read:s=>'CMB'+Math.round(s.hydComb)+' FLT'+Math.round(s.hydFlt)},
+  {id:'dgRadalt', view:'panel', kind:'chip', x:280,y:498,w:112,h:20, name:'RADAR ALTIMETER',
+   read:s=>'RALT '+Math.round(s.radalt.value)+' FT'},
   {id:'dgFuel', view:'panel', kind:'chip', x:1306,y:812,w:100,h:20, name:'FUEL',
    read:s=>Math.round(s.fuel)+' LB'},
 
@@ -628,9 +643,9 @@ const STEPS = [
  tgt:'canopy', done:s=>s.sw.canopy==='closed'},
 {n:9,  g:'1 · Pilot Pre-Start', t:'Oxygen switch — <b>ON</b> (forward)',
  tgt:'oxygen', done:s=>s.sw.oxygen==='on'},
-{n:10, g:'1 · Pilot Pre-Start', t:'Emergency Wing Sweep handle — <b>OVERSWEEP</b> (aft)',
- note:'Wings go to 68° so you do not clip anyone on a packed deck.',
- tgt:'wingSweep', done:s=>s.sw.wingSweep==='aft'},
+{n:10, g:'1 · Pilot Pre-Start', t:'Verify Emergency Wing Sweep handle — <b>OVERSWEEP</b> (aft)',
+ note:'The jet is parked in oversweep at 68° so it does not clip anyone on a packed deck.',
+ tgt:'wingSweep', done:s=>s.sw.wingSweep==='oversweep'},
 
 /* ---------------- 2. ENGINE START ---------------- */
 {n:11, g:'2 · Engine Start', t:'AIR SOURCE — <b>OFF</b>',
@@ -638,8 +653,9 @@ const STEPS = [
  tgt:'airSource', done:s=>s.sw.airSource==='off'},
 {n:12, g:'2 · Engine Start', t:'HYD TRANSFER pump — <b>SHUTOFF</b>',
  tgt:'hydTransfer', done:s=>s.sw.hydTransfer==='shutoff'},
-{n:13, g:'2 · Engine Start', t:'Emergency Flight Hydraulics — <b>AUTO</b> (low)',
- tgt:'emergFltHyd', done:s=>s.sw.emergFltHyd==='auto'},
+{n:13, g:'2 · Engine Start', t:'Emergency Flight Hydraulics — <b>AUTO / LOW</b>',
+ note:'Three positions: AUTO/LOW, LOW and HIGH.',
+ tgt:'emergFltHyd', done:s=>s.sw.emergFltHyd==='autolow'},
 {n:14, g:'2 · Engine Start', t:'L and R MASTER GEN — verify <b>NORM</b>',
  tgt:'masterGenL', done:s=>s.sw.masterGenL==='norm'&&s.sw.masterGenR==='norm'},
 {n:15, g:'2 · Engine Start', t:'Engine Crank — <b>R</b> (right engine first)',
@@ -689,9 +705,9 @@ const STEPS = [
 {n:31, g:'3 · Pilot Post-Start', t:'HSD Mode — <b>TID</b>',
  note:'Repeats the RIO\'s Tactical Information Display so you can watch the INS align.',
  tgt:'hsdMode', view:'panel', done:s=>s.sw.hsdMode==='tid'},
-{n:32, g:'3 · Pilot Post-Start', t:'Jester — select INS alignment precision <b>FINE</b>',
- note:'A → LCTRL+7 → LCTRL+7. Fine takes about 8 minutes. Use time compression up top.',
- tgt:'comms:jester', done:s=>s.ins.mode!==null},
+{n:32, g:'3 · Pilot Post-Start', t:'INS alignment — Jester starts a <b>FINE</b> alignment on his own',
+ note:'You only need the Jester menu if you want a degraded alignment. Fine takes about 8 minutes — use time compression up top. Leave the parking brake set or it will hang.',
+ tgt:'scHsd', done:s=>s.ins.mode!==null},
 {n:33, g:'3 · Pilot Post-Start', t:'Wait for alignment — Jester calls <b>“Ready to taxi”</b>',
  tgt:'scHsd', done:s=>s.ins.complete},
 {n:34, g:'3 · Pilot Post-Start', t:'GUN RATE — as required',
@@ -702,11 +718,11 @@ const STEPS = [
  tgt:'mslPrep', done:s=>s.sw.mslPrep==='off'},
 {n:37, g:'3 · Pilot Post-Start', t:'Missile MODE/STP — <b>NORM</b>',
  tgt:'modeStp', done:s=>s.sw.modeStp==='norm'},
-{n:38, g:'3 · Pilot Post-Start', t:'ANTI-SKID / SPOILER BK — <b>OFF</b> before taxi',
- note:'Left in BOTH during a slow taxi, the brakes can drop out for 2–10 seconds as you accelerate through ~15 kt.',
- tgt:'antiSkid', view:'panel', done:s=>s.sw.antiSkid==='off'},
+{n:38, g:'3 · Pilot Post-Start', t:'ANTI-SKID / SPOILER BK — <b>OFF</b> for the boat, <b>SPOILER BK</b> for a ground taxi',
+ note:'BOTH is for takeoff and landing only. Left in BOTH during a slow taxi the brakes can drop out for 2–10 seconds as you accelerate through ~15 kt.',
+ tgt:'antiSkid', view:'panel', done:s=>s.sw.antiSkid!=='both'},
 {n:39, g:'3 · Pilot Post-Start', t:'Verify wing sweep <b>68°</b>, handle full aft',
- tgt:'wingSweep', done:s=>s.sweep>=67.5&&s.sw.wingSweep==='aft'},
+ tgt:'wingSweep', done:s=>s.sweep>=67.5&&s.sw.wingSweep==='oversweep'},
 {n:40, g:'3 · Pilot Post-Start', t:'AFCS SAS — <b>PITCH, ROLL, YAW ON</b>',
  tgt:'afcsPitch', view:'console',
  done:s=>s.sw.afcsPitch==='on'&&s.sw.afcsRoll==='on'&&s.sw.afcsYaw==='on'},
@@ -719,7 +735,7 @@ const STEPS = [
 {n:44, g:'3 · Pilot Post-Start', t:'ARA-63 ICLS receiver power — <b>ON</b>',
  tgt:'ara63', view:'console', done:s=>s.sw.ara63==='on'},
 {n:45, g:'3 · Pilot Post-Start', t:'Radar altimeter — one click <b>clockwise</b> to start BIT',
- note:'Reads 6000 ft while it warms, then drops back to 0 when the built-in test finishes.',
+ note:'The needle slams to maximum as it powers up, then settles at 100 ±5 ft for the test before dropping back to 0.',
  tgt:'radAltKnob', view:'panel', done:s=>s.radalt.bitDone},
 {n:46, g:'3 · Pilot Post-Start', t:'Standby ADI — <b>erect the gyro</b>',
  note:'At least two minutes before takeoff. Pull and turn the knob until the ball matches your attitude.',
@@ -730,8 +746,20 @@ const STEPS = [
 {n:48, g:'3 · Pilot Post-Start', t:'Set <b>lights as required</b>, then taxi when ready. <b>Ready to taxi.</b>',
  note:'Guide steps 56–58 and 61 (kneeboard pages and the KY-28 encryption key) have no equivalent here — there is no kneeboard to open.',
  tgt:'extLights', view:'console', done:s=>s.touched.extLights&&s.ins.complete},
-];
-</script>
+
+/* ---------------- 4. BEFORE TAKEOFF (guide Part 5, steps 8-9) ---------------- */
+{n:49, g:'4 · Out of Oversweep', t:'Emergency Wing Sweep handle — <b>full forward to 20°</b>',
+ note:'Scroll the wheel or left-click and drag the handle all the way forward.',
+ tgt:'wingSweep', view:'console', done:s=>s.sw.wingSweep!=='oversweep'},
+{n:50, g:'4 · Out of Oversweep', t:'Push the handle <b>down into the detent</b> and flip the cover over it',
+ note:'Right-click to seat it. Until it is in the detent the wings stay in emergency mode.',
+ tgt:'wingSweep', view:'console', done:s=>s.sw.wingSweep==='detent'},
+{n:51, g:'4 · Out of Oversweep', t:'Press <b>MASTER RESET</b> — resets the CADC',
+ note:'Very important. Without it the wing sweep AUTO mode will not work properly, and the thumb switch will not either.',
+ tgt:'masterReset', view:'panel', done:s=>s.cadcReset&&s.sw.wingSweep==='detent'},
+{n:52, g:'4 · Out of Oversweep', t:'Wings driving to <b>20°</b> — AUTO mode restored',
+ tgt:'wingSweep', view:'console', done:s=>s.sweep<=20.5&&s.cadcReset},
+];</script>
 <script>/* ============================================================
    F-14B COLD START TRAINER — SYSTEMS MODEL
    ============================================================ */
@@ -752,15 +780,16 @@ const Sim = {
     const sw = {};
     CONTROLS.forEach(c=>{ if(c.states) sw[c.id] = c.init; });
     // start cold and dark
-    sw.parkBrake='off'; sw.ejectSeat='safe'; sw.canopy='open';
-    sw.oxygen='off'; sw.ics='cold'; sw.wingSweep='fwd';
-    sw.airSource='both'; sw.hydTransfer='norm'; sw.emergFltHyd='high';
+    // as parked: brake on, wings in oversweep, bleed air off, transfer AUTO/LOW
+    sw.parkBrake='set'; sw.ejectSeat='safe'; sw.canopy='open';
+    sw.oxygen='off'; sw.ics='cold'; sw.wingSweep='oversweep';
+    sw.airSource='off'; sw.hydTransfer='norm'; sw.emergFltHyd='autolow';
     sw.throttleL='off'; sw.throttleR='off'; sw.engCrank='off';
-    sw.vdiPower='off'; sw.hudPower='off'; sw.hsdPower='off'; sw.hsdMode='nav';
+    sw.vdiPower='off'; sw.hudPower='off'; sw.hsdPower='off'; sw.hsdMode='nav'; sw.masterReset='out';
     sw.uhfFunc='off'; sw.tacanFunc='off'; sw.ara63='off';
     sw.afcsPitch='off'; sw.afcsRoll='off'; sw.afcsYaw='off';
-    sw.antiSkid='both'; sw.wingExtTrans='off'; sw.radAltKnob='off'; sw.stbyAdi='caged';
-    sw.swCool='on'; sw.mslPrep='on'; sw.gunRate='low'; sw.masterArm='off'; sw.modeStp='norm';
+    sw.antiSkid='both'; sw.wingExtTrans='auto'; sw.radAltKnob='off'; sw.stbyAdi='caged';
+    sw.swCool='off'; sw.mslPrep='off'; sw.gunRate='low'; sw.masterArm='off'; sw.modeStp='norm';
 
     this.S = {
       t:0, rate:1, running:true,
@@ -770,13 +799,14 @@ const Sim = {
         L:{n2:0, egt:18, ff:0, oil:0, noz:0, lit:false, gen:false, hung:false},
         R:{n2:0, egt:18, ff:0, oil:0, noz:0, lit:false, gen:false, hung:false},
       },
-      hydFlt:0, hydComb:0, fuel:15200, sweep:20,
+      hydFlt:0, hydComb:0, fuel:15200, sweep:68,   // parked in oversweep
       caution:{startValve:false,lGen:false,rGen:false,oilPress:false,hydPress:false,
                canopy:false,masterCaution:false},
       jester:{startupRequested:false, startupT:0, commCheckPending:false, commCheckDone:false,
               canopyT:0, readyCalled:false},
       ins:{mode:null, t:0, complete:false},
       radalt:{t:0, bitDone:false, value:0},
+      cadcReset:false, insHungWarned:false,
       faults:[],
       dl:{mode:false, host:false},
     };
@@ -788,6 +818,7 @@ const Sim = {
     const S=this.S, c=CONTROLS.find(c=>c.id===id);
     if(!c || !c.states) return;
     S.touched[id]=true;
+    if(c.reverse) dir = -dir;      // ARC-159 and TACAN turn the other way
     let cur = c.states.indexOf(S.sw[id]);
     let next;
 
@@ -844,11 +875,24 @@ const Sim = {
         break;
       }
       case 'radAltKnob':
-        if(to==='on'){ S.radalt.t=0; S.radalt.value=6000; this.emit('Radar altimeter BIT running — 6000 ft displayed.','radio'); }
+        if(to==='on'){ S.radalt.t=0; S.radalt.value=5000; this.emit('Radar altimeter BIT running — needle to max, then 100 ft.','radio'); }
         else { S.radalt.bitDone=false; S.radalt.value=0; }
         break;
       case 'stbyAdi':
         if(to==='erect') this.emit('Standby ADI erected, cage flag out.','good'); break;
+      case 'masterReset':
+        if(to==='in'){
+          S.sw.masterReset='out'; S.cadcReset=true;
+          this.emit('Master Reset — CADC fault detection reset.','good');
+        }
+        break;
+      case 'wingSweep':
+        if(to!=='detent') S.cadcReset=false;
+        break;
+      case 'parkBrake':
+        if(to==='off' && S.ins.mode && !S.ins.complete)
+          this.emit('Parking brake released — INS alignment will hang.','bad');
+        break;
       case 'airSource':
         if(to==='both' && S.eng.L.n2>55 && S.eng.R.n2>55)
           this.emit('Bleed air to ECS — WCS cooling available.','good');
@@ -963,7 +1007,7 @@ const Sim = {
     S.hydComb += (cmbT - S.hydComb) * 1.1 * dt;
 
     // wing sweep
-    const swT = S.sw.wingSweep==='aft' ? 68 : 20;
+    const swT = S.sw.wingSweep==='oversweep' ? 68 : 20;
     S.sweep += Math.sign(swT - S.sweep) * Math.min(Math.abs(swT-S.sweep), 7*dt);
 
     // fuel burn
@@ -980,21 +1024,34 @@ const Sim = {
       if(J.canopyT > 2.5){ S.sw.canopy='closed'; J.canopyT=0; this.emit('Jester closed the canopy.','good'); }
     }
 
-    // INS alignment
+    // INS alignment. The RIO starts a FINE alignment on his own once the jet can
+    // support it; the Jester menu is only needed to ask for a degraded one.
+    const insReady = S.power && S.eng.L.n2>55 && S.eng.R.n2>55 && S.sw.airSource==='both';
+    if(insReady && !S.ins.mode){
+      S.ins.mode='fine'; S.ins.t=0;
+      this.emit('Jester: starting INS alignment — FINE.','radio');
+    }
     if(S.ins.mode && !S.ins.complete){
-      const ok = S.power && S.eng.L.n2>55 && S.eng.R.n2>55 && S.sw.airSource==='both';
-      if(ok){
+      if(insReady && S.sw.parkBrake==='set'){
         S.ins.t += dt;
+        S.insHungWarned=false;
         if(S.ins.t >= INS_TIME[S.ins.mode]){
           S.ins.complete = true;
           this.emit('Jester: “Ready to taxi!”','good');
         }
+      } else if(insReady && S.sw.parkBrake!=='set' && !S.insHungWarned){
+        S.insHungWarned=true;
+        this.fault('INS alignment hung — parking brake released while aligning');
+        this.emit('INS alignment hung — the jet must not move. Set the parking brake.','bad');
       }
     }
 
     // radar altimeter BIT
-    if(S.sw.radAltKnob==='on' && !S.radalt.bitDone){
+    if(S.sw.radAltKnob!=='on'){ S.radalt.value=0; }
+    else if(!S.radalt.bitDone){
       S.radalt.t += dt;
+      // needle slams to max as it powers up, then parks at 100 ft while it tests
+      S.radalt.value = S.radalt.t < 3 ? 5000 : 100 + Math.sin(S.t*1.7)*4;
       // guide: 6000 ft is displayed for about 2 to 3 minutes while it warms up
       if(S.radalt.t > 150){
         S.radalt.bitDone=true; S.radalt.value=0;
@@ -1279,6 +1336,15 @@ const UI = {
       $('#done').classList.add('gone');
       $('#timechip').textContent='1×'; $('#timechip').classList.remove('warn');
       this.closeComms(); this.toast('Cold and dark.','good');
+    };
+    $('#btnScramble').onclick=()=>{
+      $('#btnReset').click();
+      const S=Sim.S, wrong={parkBrake:'off', wingSweep:'fwd', airSource:'both',
+        wingExtTrans:'off', swCool:'on', mslPrep:'on', emergFltHyd:'high',
+        hydTransfer:'shutoff', masterGenL:'off'};
+      const picked=Object.keys(wrong).filter(()=>Math.random()<0.6);
+      (picked.length?picked:['parkBrake','airSource']).forEach(k=>S.sw[k]=wrong[k]);
+      this.toast('Cockpit scrambled — '+picked.length+' switch(es) left wrong. Check before you start.','radio');
     };
     $('#btnEdit').onclick=()=>this.setEdit(true);
     $('#edDone').onclick=()=>this.setEdit(false);
