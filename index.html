@@ -468,6 +468,9 @@ const CONTROLS = [
   {id:'emergFltHyd', view:'console', kind:'lever', x:1851,y:862,w:36,h:92,
    name:'EMERG FLIGHT HYD', states:['auto','high'],
    lab:{high:'HIGH',auto:'AUTO / LOW'}, init:'high'},
+  {id:'extLights', view:'console', kind:'sw', x:1650,y:464,w:32,h:44,
+   name:'POSITION LIGHTS', states:['dim','off','brt'],
+   lab:{dim:'DIM',off:'OFF',brt:'BRT'}, init:'off'},
   {id:'ara63', view:'console', kind:'sw', x:1830,y:317,w:36,h:42,
    name:'ARA-63 ICLS POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off'},
 
@@ -658,76 +661,82 @@ const STEPS = [
  tgt:'engCrank', done:s=>s.sw.engCrank==='left'||s.eng.L.lit},
 {n:21, g:'2 · Engine Start', t:'At <b>20% N2</b> — left throttle <b>OFF → IDLE</b>',
  tgt:'throttleL', done:s=>s.eng.L.lit},
-{n:22, g:'2 · Engine Start', t:'Left engine stable — <b>L GEN</b> caution out',
+{n:22, g:'2 · Engine Start', t:'Monitor — oil pressure rising, TIT below <b>890 °C</b>',
+ tgt:'tapeTit', done:s=>s.eng.L.n2>45},
+{n:23, g:'2 · Engine Start', t:'At ~50% N2 — crank switch springs to <b>OFF</b>, START VALVE out',
+ tgt:'clStartValve', done:s=>s.eng.L.n2>52&&s.sw.engCrank==='off'},
+{n:24, g:'2 · Engine Start', t:'Left engine stable — <b>L GEN</b> caution out',
+ note:'Same numbers as the right: 62–78% RPM, ~500 °C, 950–1400 pph, nozzle 100%, oil 25–35 psi.',
  tgt:'clLGen', done:s=>s.eng.L.n2>=62&&!s.caution.lGen},
-{n:23, g:'2 · Engine Start', t:'HYD TRANSFER pump — <b>NORM</b>',
+{n:25, g:'2 · Engine Start', t:'HYD TRANSFER pump — <b>NORM</b>',
  tgt:'hydTransfer', done:s=>s.sw.hydTransfer==='norm'},
-{n:24, g:'2 · Engine Start', t:'Verify COMBINED and FLIGHT hydraulics both <b>3000 psi</b>, no HYD PRESS caution',
+{n:26, g:'2 · Engine Start', t:'Verify COMBINED and FLIGHT hydraulics both <b>3000 psi</b>, no HYD PRESS caution',
  tgt:'dgHyd', done:s=>s.hydComb>2900&&s.hydFlt>2900&&!s.caution.hydPress},
-{n:25, g:'2 · Engine Start', t:'AIR SOURCE — <b>BOTH ENG</b>',
+{n:27, g:'2 · Engine Start', t:'AIR SOURCE — <b>BOTH ENG</b>',
  note:'The WCS needs ECS cooling air before the RIO can align the INS.',
  tgt:'airSource', done:s=>s.sw.airSource==='both'},
-{n:26, g:'2 · Engine Start', t:'Ground crew — <b>disconnect</b> electrical power',
+{n:28, g:'2 · Engine Start', t:'Ground crew — <b>disconnect</b> electrical power',
  note:'\\ → F8 → F2 → F2 OFF.',
  tgt:'comms:ground', done:s=>!s.gpu},
-{n:27, g:'2 · Engine Start', t:'Ground crew — <b>disconnect</b> air supply',
+{n:29, g:'2 · Engine Start', t:'Ground crew — <b>disconnect</b> air supply',
  note:'\\ → F8 → F5 → F2.',
  tgt:'comms:ground', done:s=>!s.airCart},
 
 /* ---------------- 3. POST-START ---------------- */
-{n:28, g:'3 · Pilot Post-Start', t:'VDI, HUD and HSD power switches — <b>ON</b>',
+{n:30, g:'3 · Pilot Post-Start', t:'VDI, HUD and HSD power switches — <b>ON</b>',
  tgt:'vdiPower', view:'panel',
  done:s=>s.sw.vdiPower==='on'&&s.sw.hudPower==='on'&&s.sw.hsdPower==='on'},
-{n:29, g:'3 · Pilot Post-Start', t:'HSD Mode — <b>TID</b>',
+{n:31, g:'3 · Pilot Post-Start', t:'HSD Mode — <b>TID</b>',
  note:'Repeats the RIO\'s Tactical Information Display so you can watch the INS align.',
  tgt:'hsdMode', view:'panel', done:s=>s.sw.hsdMode==='tid'},
-{n:30, g:'3 · Pilot Post-Start', t:'Jester — select INS alignment precision <b>FINE</b>',
+{n:32, g:'3 · Pilot Post-Start', t:'Jester — select INS alignment precision <b>FINE</b>',
  note:'A → LCTRL+7 → LCTRL+7. Fine takes about 8 minutes. Use time compression up top.',
  tgt:'comms:jester', done:s=>s.ins.mode!==null},
-{n:31, g:'3 · Pilot Post-Start', t:'Wait for alignment — Jester calls <b>“Ready to taxi”</b>',
+{n:33, g:'3 · Pilot Post-Start', t:'Wait for alignment — Jester calls <b>“Ready to taxi”</b>',
  tgt:'scHsd', done:s=>s.ins.complete},
-{n:32, g:'3 · Pilot Post-Start', t:'GUN RATE — as required',
+{n:34, g:'3 · Pilot Post-Start', t:'GUN RATE — as required',
  tgt:'gunRate', done:s=>s.touched.gunRate},
-{n:33, g:'3 · Pilot Post-Start', t:'SW COOL — <b>OFF</b>',
+{n:35, g:'3 · Pilot Post-Start', t:'SW COOL — <b>OFF</b>',
  tgt:'swCool', done:s=>s.sw.swCool==='off'},
-{n:34, g:'3 · Pilot Post-Start', t:'MSL PREP — <b>OFF</b>',
+{n:36, g:'3 · Pilot Post-Start', t:'MSL PREP — <b>OFF</b>',
  tgt:'mslPrep', done:s=>s.sw.mslPrep==='off'},
-{n:35, g:'3 · Pilot Post-Start', t:'Missile MODE/STP — <b>NORM</b>',
+{n:37, g:'3 · Pilot Post-Start', t:'Missile MODE/STP — <b>NORM</b>',
  tgt:'modeStp', done:s=>s.sw.modeStp==='norm'},
-{n:36, g:'3 · Pilot Post-Start', t:'ANTI-SKID / SPOILER BK — <b>OFF</b> before taxi',
+{n:38, g:'3 · Pilot Post-Start', t:'ANTI-SKID / SPOILER BK — <b>OFF</b> before taxi',
  note:'Left in BOTH during a slow taxi, the brakes can drop out for 2–10 seconds as you accelerate through ~15 kt.',
  tgt:'antiSkid', view:'panel', done:s=>s.sw.antiSkid==='off'},
-{n:37, g:'3 · Pilot Post-Start', t:'Verify wing sweep <b>68°</b>, handle full aft',
+{n:39, g:'3 · Pilot Post-Start', t:'Verify wing sweep <b>68°</b>, handle full aft',
  tgt:'wingSweep', done:s=>s.sweep>=67.5&&s.sw.wingSweep==='aft'},
-{n:38, g:'3 · Pilot Post-Start', t:'AFCS SAS — <b>PITCH, ROLL, YAW ON</b>',
+{n:40, g:'3 · Pilot Post-Start', t:'AFCS SAS — <b>PITCH, ROLL, YAW ON</b>',
  tgt:'afcsPitch', view:'console',
  done:s=>s.sw.afcsPitch==='on'&&s.sw.afcsRoll==='on'&&s.sw.afcsYaw==='on'},
-{n:39, g:'3 · Pilot Post-Start', t:'WING/EXT TRANS — <b>AUTO</b>',
+{n:41, g:'3 · Pilot Post-Start', t:'WING/EXT TRANS — <b>AUTO</b>',
  tgt:'wingExtTrans', view:'panel', done:s=>s.sw.wingExtTrans==='auto'},
-{n:40, g:'3 · Pilot Post-Start', t:'UHF 1 function selector — <b>BOTH</b>',
+{n:42, g:'3 · Pilot Post-Start', t:'UHF 1 function selector — <b>BOTH</b>',
  tgt:'uhfFunc', view:'console', done:s=>s.sw.uhfFunc==='both'},
-{n:41, g:'3 · Pilot Post-Start', t:'TACAN function selector — <b>T/R</b>',
+{n:43, g:'3 · Pilot Post-Start', t:'TACAN function selector — <b>T/R</b>',
  tgt:'tacanFunc', view:'console', done:s=>s.sw.tacanFunc==='tr'},
-{n:42, g:'3 · Pilot Post-Start', t:'ARA-63 ICLS receiver power — <b>ON</b>',
+{n:44, g:'3 · Pilot Post-Start', t:'ARA-63 ICLS receiver power — <b>ON</b>',
  tgt:'ara63', view:'console', done:s=>s.sw.ara63==='on'},
-{n:43, g:'3 · Pilot Post-Start', t:'Radar altimeter — one click <b>clockwise</b> to start BIT',
+{n:45, g:'3 · Pilot Post-Start', t:'Radar altimeter — one click <b>clockwise</b> to start BIT',
  note:'Reads 6000 ft while it warms, then drops back to 0 when the built-in test finishes.',
  tgt:'radAltKnob', view:'panel', done:s=>s.radalt.bitDone},
-{n:44, g:'3 · Pilot Post-Start', t:'Standby ADI — <b>erect the gyro</b>',
+{n:46, g:'3 · Pilot Post-Start', t:'Standby ADI — <b>erect the gyro</b>',
  note:'At least two minutes before takeoff. Pull and turn the knob until the ball matches your attitude.',
  tgt:'stbyAdi', view:'panel', done:s=>s.sw.stbyAdi==='erect'},
-{n:45, g:'3 · Pilot Post-Start', t:'Jester — datalink <b>mode and host</b> set',
+{n:47, g:'3 · Pilot Post-Start', t:'Jester — datalink <b>mode and host</b> set',
  note:'A, A → LCTRL+7 DATA LINK RADIO → SET MODE → Tactical Datalink System, then SET HOST.',
  tgt:'comms:jester', done:s=>s.dl.mode&&s.dl.host},
-{n:46, g:'3 · Pilot Post-Start', t:'Master Arm — <b>OFF</b>, lights as required. <b>Ready to taxi.</b>',
- tgt:'masterArm', done:s=>s.sw.masterArm==='off'&&s.ins.complete},
+{n:48, g:'3 · Pilot Post-Start', t:'Set <b>lights as required</b>, then taxi when ready. <b>Ready to taxi.</b>',
+ note:'Guide steps 56–58 and 61 (kneeboard pages and the KY-28 encryption key) have no equivalent here — there is no kneeboard to open.',
+ tgt:'extLights', view:'console', done:s=>s.touched.extLights&&s.ins.complete},
 ];
 </script>
 <script>/* ============================================================
    F-14B COLD START TRAINER — SYSTEMS MODEL
    ============================================================ */
 
-const IDLE_N2 = 66;
+const IDLE_N2 = 69;   // guide: stabilises 'around 70%', limits 62-78%
 const MOTOR_N2 = 26;      // pneumatic starter can motor to ~26% N2
 const LIGHT_MIN = 18;     // minimum N2 for a clean light-off
 const STARTER_CUTOUT = 50;
@@ -931,7 +940,7 @@ const Sim = {
         e.noz += (10 - e.noz) * 0.5 * dt;
       }
       // starter cut-out
-      if(e.lit && e.egt > 860) this.fault('TIT exceeded 860 °C during start');
+      if(e.lit && e.egt > 890) this.fault('TIT exceeded 890 °C during start');
       if(cranking && e.n2 >= STARTER_CUTOUT){
         S.sw.engCrank='off';
         this.emit((k==='L'?'Left':'Right')+' starter cut out at 50% — START VALVE out.','good');
@@ -986,8 +995,11 @@ const Sim = {
     // radar altimeter BIT
     if(S.sw.radAltKnob==='on' && !S.radalt.bitDone){
       S.radalt.t += dt;
-      if(S.radalt.t > 40){ S.radalt.bitDone=true; S.radalt.value=0;
-        this.emit('Radar altimeter BIT complete.','good'); }
+      // guide: 6000 ft is displayed for about 2 to 3 minutes while it warms up
+      if(S.radalt.t > 150){
+        S.radalt.bitDone=true; S.radalt.value=0;
+        this.emit('Radar altimeter BIT complete.','good');
+      }
     }
 
     // cautions
@@ -1499,7 +1511,7 @@ const UI = {
         });
         const chip=n.querySelector('[data-chip]');
         chip.textContent=g.fmt(l,r);
-        chip.className='gchip'+(l<1&&r<1?' dim':(g.id==='tapeTit'&&(l>860||r>860)?' bad':
+        chip.className='gchip'+(l<1&&r<1?' dim':(g.id==='tapeTit'&&(l>890||r>890)?' bad':
           (g.id==='tapeTit'&&(l>600||r>600)?' hot':'')));
       } else if(g.kind==='chip'){
         n.textContent=g.read(S);
