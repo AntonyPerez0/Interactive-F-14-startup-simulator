@@ -2,7 +2,7 @@
 import { RIO_PRE, RIO_POST } from './rio-common.js';
 import { capCue } from '../systems.js';
 
-export const meta = { id:'rio-shore', crew:'rio', variant:'shore',
+export const meta = { id:'rio-shore', crew:'rio', phase:'startup', variant:'shore',
                       name:'INS alignment · shore', view:'rioL' };
 
 export const MID = [

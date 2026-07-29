@@ -1,0 +1,123 @@
+/* ============================================================
+   CORE · MENU
+   Two screens. The hangar lists every aircraft in the catalogue,
+   greying out the ones that are not built yet; picking a built one
+   moves to its procedures, grouped by phase.
+
+   Both screens are generated from the registry and the aircraft
+   modules, so adding a jet or a procedure needs no change here.
+   ============================================================ */
+import { $, el } from './dom.js';
+
+const PHASES = [
+  { id:'startup',  label:'Start-up',  blurb:'Cold and dark to ready to taxi' },
+  { id:'landing',  label:'Landing',   blurb:'Configure, break, pattern and groove' },
+  { id:'shutdown', label:'Shutdown',  blurb:'Securing the aircraft' },
+];
+
+export function createMenu(catalogue, onPick) {
+  const M = {
+    screen: 'hangar',
+    entry: catalogue.find(c => c.module) || catalogue[0],
+
+    mount() {
+      const box = el('div');
+      box.id = 'menu';
+      box.innerHTML = '<div class="menuinner" data-menu="inner"></div>';
+      document.body.appendChild(box);
+      this.box = box;
+      this.inner = box.querySelector('[data-menu="inner"]');
+      this.render();
+    },
+
+    open(screen) {
+      if (screen) this.screen = screen;
+      this.box.classList.add('open');
+      this.render();
+    },
+    close() { this.box.classList.remove('open'); },
+
+    render() {
+      this.inner.innerHTML = '';
+      this[this.screen === 'procs' ? 'renderProcs' : 'renderHangar']();
+      this.box.scrollTop = 0;
+    },
+
+    /* ---------------- screen 1: the hangar ---------------- */
+    renderHangar() {
+      const head = el('div', 'menuhead');
+      const built = catalogue.filter(c => c.module).length;
+      head.innerHTML =
+        '<div class="kick">DCS Cockpit Trainer</div>' +
+        '<h1>Choose an aircraft<small>' + built + ' of ' + catalogue.length +
+        ' built. Every switch is live, and the checklist ticks itself off when the ' +
+        'aircraft actually gets there.</small></h1>';
+      this.inner.appendChild(head);
+
+      const cats = [...new Set(catalogue.map(c => c.cat))];
+      cats.forEach(cat => {
+        const sec = el('div', 'phase');
+        const h = el('div', 'phasehead');
+        const n = catalogue.filter(c => c.cat === cat && c.module).length;
+        h.innerHTML = `<b>${cat}</b><span>${n ? n + ' available' : 'none built yet'}</span>`;
+        sec.appendChild(h);
+
+        const grid = el('div', 'planegrid');
+        catalogue.filter(c => c.cat === cat).forEach(c => {
+          const ready = !!c.module;
+          const b = el('button', 'planecard' + (ready ? '' : ' soonplane'));
+          b.disabled = !ready;
+          b.innerHTML =
+            `<b>${c.name}</b><span class="maker">${c.maker}</span>` +
+            `<span class="tag">${ready ? c.module.procedures.length + ' procedures' : 'Not built yet'}</span>`;
+          if (ready) b.onclick = () => { this.entry = c; this.open('procs'); };
+          grid.appendChild(b);
+        });
+        sec.appendChild(grid);
+        this.inner.appendChild(sec);
+      });
+    },
+
+    /* ---------------- screen 2: procedures ---------------- */
+    renderProcs() {
+      const ac = this.entry.module;
+
+      const back = el('button', 'menuback');
+      back.textContent = '\u2190  All aircraft';
+      back.onclick = () => this.open('hangar');
+      this.inner.appendChild(back);
+
+      const head = el('div', 'menuhead');
+      head.innerHTML =
+        `<div class="kick">${this.entry.maker}</div>` +
+        `<h1>${ac.name}<small>${ac.source}</small></h1>`;
+      this.inner.appendChild(head);
+
+      PHASES.forEach(ph => {
+        const list = ac.procedures.filter(p => p.meta.phase === ph.id);
+        const sec = el('div', 'phase' + (list.length ? '' : ' empty'));
+        const h = el('div', 'phasehead');
+        h.innerHTML = `<b>${ph.label}</b><span>${ph.blurb}</span>`;
+        sec.appendChild(h);
+
+        if (!list.length) {
+          const soon = el('div', 'soon');
+          soon.textContent = 'Not built yet';
+          sec.appendChild(soon);
+        } else {
+          list.forEach(p => {
+            const card = el('button', 'proc');
+            card.innerHTML =
+              `<span class="crew ${p.meta.crew}">${p.meta.crew === 'rio' ? 'RIO' : 'Pilot'}</span>` +
+              `<b>${p.meta.name}</b>` +
+              `<span class="n">${p.steps.length} steps</span>`;
+            card.onclick = () => { this.close(); onPick(ac, p); };
+            sec.appendChild(card);
+          });
+        }
+        this.inner.appendChild(sec);
+      });
+    },
+  };
+  return M;
+}

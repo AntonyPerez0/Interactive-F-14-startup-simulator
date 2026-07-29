@@ -40,25 +40,27 @@ export function createViews(sim, ac) {
     buildTray() {
       const tray = el('div');
       tray.id = 'tray';
-      tray.style.cssText = 'position:absolute;left:12px;top:12px;z-index:25;display:flex;' +
-        'flex-direction:column;gap:5px;background:rgba(9,13,14,.9);border:1px solid var(--seam-hi);' +
-        'border-radius:3px;padding:8px';
-      const h = el('div');
-      h.textContent = 'Not in these photos';
-      h.style.cssText = 'font-size:9px;letter-spacing:.2em;text-transform:uppercase;' +
-        'color:var(--txt-dim);margin-bottom:2px';
+
+      const h = el('button', 'trayhead');
+      const short = window.innerWidth <= 820;
+      h.innerHTML = '<span>' + (short ? 'Not in photos' : 'Not in these photos') +
+                    '</span><b>–</b>';
+      h.onclick = () => {
+        const shut = tray.classList.toggle('shut');
+        h.querySelector('b').textContent = shut ? '+' : '–';
+      };
       tray.appendChild(h);
+      // start collapsed where the screen is small
+      if (window.innerWidth <= 820) {
+        tray.classList.add('shut');
+        h.querySelector('b').textContent = '+';
+      }
       ac.controls.filter(c => c.tray).forEach(c => {
-        const b = el('button');
+        const b = el('button', 'trayitem');
         b.dataset.tray = c.id;
-        b.style.cssText = 'display:flex;justify-content:space-between;gap:14px;font-size:11px;' +
-          'letter-spacing:.08em;padding:6px 8px;border:1px solid #242f32;border-radius:2px;' +
-          'background:#111819;text-transform:uppercase';
         const label = el('span');
         label.textContent = c.name;
-        label.style.color = '#8fa0a4';
         const value = el('b');
-        value.style.cssText = 'font-family:var(--data);color:var(--phos)';
         b.appendChild(label); b.appendChild(value);
         tray.appendChild(b);
         b._value = value;

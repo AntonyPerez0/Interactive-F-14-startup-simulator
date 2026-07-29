@@ -5,7 +5,9 @@
    sim knows none of this — it just calls initState / onChange / tick.
    ============================================================ */
 
-const IDLE_N2 = 69;        // guide: stabilises 'around 70%', limits 62-78%
+const IDLE_N2 = 69;
+const CRUISE_N2 = 86;
+const N2_TARGET = { off:IDLE_N2, idle:IDLE_N2, half:CRUISE_N2, mil:98 };      // the mid throttle detent, roughly a pattern power setting        // guide: stabilises 'around 70%', limits 62-78%
 const MOTOR_N2 = 26;       // the pneumatic starter can motor to about 26%
 const LIGHT_MIN = 18;      // minimum N2 for a clean light-off
 const STARTER_CUTOUT = 50;
@@ -61,7 +63,7 @@ export function initState(S, sw) {
              commCheckDone:false, canopyT:0, readyCalled:false },
     ins:{ mode:null, t:0, complete:false },
     radalt:{ t:0, bitDone:false, value:0 },
-    cadcReset:false, insHungWarned:false, rioSeat:false, autoT:0, autoI:0,
+    cadcReset:false, insHungWarned:false, dlcActive:false, rioSeat:false, autoT:0, autoI:0,
     rio:{ wcsT:0, wcsUp:false, msg:'ownac', cleared:false,
           capField:null, capSign:null, capDigits:'',
           capLine:'', stbyLight:false, readyLight:false,
@@ -83,6 +85,39 @@ export function capCue(S, field, digits) {
   if (!R.capSign) return 'capNE';
   if (R.capDigits.length < digits.length) return 'cap' + digits[R.capDigits.length];
   return 'capEnter';
+}
+
+/* Hands over an aircraft that is already flying: engines up, generators on,
+   hydraulics pressurised, INS aligned, gear and flaps away. Landing procedures
+   start here rather than cold and dark. */
+export function setAirborne(sim, opts = {}) {
+  const S = sim.S;
+  Object.assign(S.sw, {
+    throttleL:'half', throttleR:'half', engCrank:'off',
+    parkBrake:'off', ejectSeat:'armed', canopy:'closed',
+    oxygen:'on', ics:'hot', rioIcs:'hot',
+    airSource:'both', hydTransfer:'norm',
+    masterGenL:'norm', masterGenR:'norm',
+    gearHandle:'up', flapsLever:'up', hookHandle:'up',
+    wingSweep:'detent', sweepThumb:'fwd', speedBrake:'in', dlc:'off',
+    vdiPower:'on', hudPower:'on', hsdPower:'on',
+    uhfFunc:'both', tacanFunc:'tr', radAltKnob:'on', stbyAdi:'erect',
+    afcsPitch:'on', afcsRoll:'on', afcsYaw:'on',
+    masterMode:'cruise', liquidCool:'awg9', wcsMode:'stby', navMode:'ins',
+    antiSkid:'both', masterArm:'off',
+  }, opts.sw || {});
+  ['L','R'].forEach(k => Object.assign(S.eng[k], {
+    n2:CRUISE_N2, egt:640, ff:4200, oil:32, noz:45, lit:true, gen:true, hung:false,
+  }));
+  S.gpu = false; S.airCart = false; S.power = true;
+  S.hydFlt = 3000; S.hydComb = 3000;
+  S.sweep = 20;
+  S.fuel = opts.fuel ?? 5200;
+  S.ins = { mode:'fine', t:9999, complete:true };
+  S.radalt = { t:9999, bitDone:true, value:0 };
+  S.rio.wcsT = 99; S.rio.wcsUp = true;
+  Object.keys(S.caution).forEach(k => { S.caution[k] = false; });
+  return S;
 }
 
 export function insPct(S) {
@@ -271,14 +306,19 @@ export function tick(sim, dt) {
       }
 
       if(e.lit){
-        // spooling to idle after light-off
-        e.n2 += (IDLE_N2 - e.n2) * 0.085 * dt + 0.9*dt;
-        if(e.n2 > IDLE_N2) e.n2 = IDLE_N2;
-        const peak = e.n2 < 52 ? 340 + (52-e.n2)*8.5 : 500;
-        e.egt += (Math.min(890, peak) - e.egt) * 1.1 * dt;
-        e.ff  += ((700 + (e.n2/IDLE_N2)*430) - e.ff) * 1.4 * dt;
+        // N2 chases whatever the throttle is asking for; the extra term is the
+        // spool-up assist after light-off and only applies while below target
+        const tgt = N2_TARGET[thr] ?? IDLE_N2;
+        e.n2 += (tgt - e.n2) * 0.085 * dt + (e.n2 < tgt - 0.2 ? 0.9*dt : 0);
+        if(e.n2 > tgt) e.n2 = tgt;
+        const startPeak = e.n2 < 52 ? 340 + (52-e.n2)*8.5 : 500;
+        const egtT = thr==='mil' ? 760 : thr==='half' ? 640 : startPeak;
+        const ffT  = thr==='mil' ? 9500 : thr==='half' ? 4200 : 700 + (e.n2/IDLE_N2)*430;
+        const nozT = thr==='mil' ? 10 : thr==='half' ? 45 : 100;
+        e.egt += (Math.min(890, egtT) - e.egt) * 1.1 * dt;
+        e.ff  += (ffT - e.ff) * 1.4 * dt;
         e.oil += (Math.min(32, 4 + (e.n2/IDLE_N2)*28) - e.oil) * 1.0 * dt;
-        e.noz += (100 - e.noz) * 1.2 * dt;
+        e.noz += (nozT - e.noz) * 1.2 * dt;
         e.gen = e.n2 > 55;
       } else if(cranking){
         const ceiling = bleedOk ? MOTOR_N2 : 14;   // ECS stealing bleed air = hung crank
@@ -296,12 +336,6 @@ export function tick(sim, dt) {
         e.noz += (0 - e.noz) * 1.2 * dt;
         if(e.n2 < 0.4) e.n2 = 0;
         e.gen = false;
-      }
-      if(thr==='mil' && e.lit){
-        e.n2 += (98 - e.n2) * 0.10 * dt;
-        e.ff += (9500 - e.ff) * 0.5 * dt;
-        e.egt += (760 - e.egt) * 0.5 * dt;
-        e.noz += (10 - e.noz) * 0.5 * dt;
       }
       // starter cut-out
       if(e.lit && e.egt > 890) sim.fault('TIT exceeded 890 °C during start');
@@ -332,7 +366,11 @@ export function tick(sim, dt) {
     S.hydComb += (cmbT - S.hydComb) * 1.1 * dt;
 
     // wing sweep
-    const swT = S.sw.wingSweep==='oversweep' ? 68 : 20;
+    // Out of the detent the wing sweep is in MANUAL and follows the thumb switch;
+    // in the detent it is AUTO and sits at 20 for the approach.
+    const swT = S.sw.wingSweep === 'oversweep' ? 68
+              : S.sw.wingSweep === 'detent'    ? 20
+              : (S.sw.sweepThumb === 'aft' ? 68 : 20);
     S.sweep += Math.sign(swT - S.sweep) * Math.min(Math.abs(swT-S.sweep), 7*dt);
 
     // fuel burn
@@ -398,6 +436,9 @@ export function tick(sim, dt) {
       R.wcsT += dt;
       if(R.wcsT >= 30){ R.wcsUp=true; sim.emit('WCS up — TID and DDD online.','good'); }
     } else if(!wcsOk){ R.wcsT=0; R.wcsUp=false; }
+
+    // DLC only engages with the flaps down
+    S.dlcActive = S.sw.dlc === 'on' && S.sw.flapsLever === 'down';
 
     // radar altimeter BIT
     if(S.sw.radAltKnob!=='on'){ S.radalt.value=0; }

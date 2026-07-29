@@ -54,7 +54,11 @@ def transform(path):
         if m.group('ns'):
             return 'const %s = %s;' % (m.group('ns').split()[-1], dep)
         if m.group('named'):
-            return 'const %s = %s;' % (m.group('named'), dep)
+            # `import { a as b }` becomes `const { a: b }` — destructuring renames
+            # with a colon, not `as`
+            names = m.group('named').strip('{} ').split(',')
+            fields = ', '.join(n.strip().replace(' as ', ': ') for n in names if n.strip())
+            return 'const { %s } = %s;' % (fields, dep)
         return 'const %s = %s.default;' % (m.group('def'), dep)
     src = IMPORT_RE.sub(imp, src)
 
@@ -94,6 +98,22 @@ def verify(mods):
         sys.exit(1)
 
 
+def check(js):
+    """Run the flattened script through node so a bad transform fails the build."""
+    import shutil, subprocess, tempfile
+    node = shutil.which('node')
+    if not node:
+        print('  (node not found — skipping the syntax check)')
+        return
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as fh:
+        fh.write(js)
+        path = fh.name
+    r = subprocess.run([node, '--check', path], capture_output=True, text=True)
+    if r.returncode:
+        print('BUNDLE DOES NOT PARSE:\n' + r.stderr[:900])
+        sys.exit(1)
+
+
 def main():
     entry = ROOT / 'src' / 'core' / 'app.js'
     mods = collect(entry)
@@ -115,6 +135,9 @@ def main():
                         '<style>\n' + css + '\n</style>')
     html = html.replace('<script type="module" src="src/core/app.js"></script>',
                         '<script>\n' + body + '\n</script>')
+
+    # never ship a bundle that will not parse
+    check(body)
 
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(html)

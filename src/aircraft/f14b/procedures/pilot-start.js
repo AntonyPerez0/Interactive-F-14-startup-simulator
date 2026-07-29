@@ -4,7 +4,7 @@
    done(s) is evaluated every frame; a step ticks itself off when the
    aircraft actually reaches that state. Steps are gated in order. */
 
-export const meta = { id:'pilot-start', crew:'pilot', name:'Cold start', view:'front' };
+export const meta = { id:'pilot-start', crew:'pilot', phase:'startup', name:'Cold start', view:'front' };
 
 export const steps = [
 /* ---------------- 1. PILOT PRE-START ---------------- */
@@ -90,11 +90,11 @@ export const steps = [
 
 /* ---------------- 3. POST-START ---------------- */
 {n:30, g:'3 · Pilot Post-Start', t:'VDI, HUD and HSD power switches — <b>ON</b>',
- tgt:'vdiPower', view:'panel',
+ tgt:'vdiPower', view:'front',
  done:s=>s.sw.vdiPower==='on'&&s.sw.hudPower==='on'&&s.sw.hsdPower==='on'},
 {n:31, g:'3 · Pilot Post-Start', t:'HSD Mode — <b>TID</b>',
  note:'Repeats the RIO\'s Tactical Information Display so you can watch the INS align.',
- tgt:'hsdMode', view:'panel', done:s=>s.sw.hsdMode==='tid'},
+ tgt:'hsdMode', view:'front', done:s=>s.sw.hsdMode==='tid'},
 {n:32, g:'3 · Pilot Post-Start', t:'INS alignment — Jester starts a <b>FINE</b> alignment on his own',
  note:'You only need the Jester menu if you want a degraded alignment. Fine takes about 8 minutes — use time compression up top. Leave the parking brake set or it will hang.',
  tgt:'scHsd', done:s=>s.ins.mode!==null},
@@ -110,43 +110,43 @@ export const steps = [
  tgt:'modeStp', done:s=>s.sw.modeStp==='norm'},
 {n:38, g:'3 · Pilot Post-Start', t:'ANTI-SKID / SPOILER BK — <b>OFF</b> for the boat, <b>SPOILER BK</b> for a ground taxi',
  note:'BOTH is for takeoff and landing only. Left in BOTH during a slow taxi the brakes can drop out for 2–10 seconds as you accelerate through ~15 kt.',
- tgt:'antiSkid', view:'panel', done:s=>s.sw.antiSkid!=='both'},
+ tgt:'antiSkid', view:'front', done:s=>s.sw.antiSkid!=='both'},
 {n:39, g:'3 · Pilot Post-Start', t:'Verify wing sweep <b>68°</b>, handle full aft',
  tgt:'wingSweep', done:s=>s.sweep>=67.5&&s.sw.wingSweep==='oversweep'},
 {n:40, g:'3 · Pilot Post-Start', t:'AFCS SAS — <b>PITCH, ROLL, YAW ON</b>',
- tgt:'afcsPitch', view:'console',
+ tgt:'afcsPitch', view:'consoles',
  done:s=>s.sw.afcsPitch==='on'&&s.sw.afcsRoll==='on'&&s.sw.afcsYaw==='on'},
 {n:41, g:'3 · Pilot Post-Start', t:'WING/EXT TRANS — <b>AUTO</b>',
- tgt:'wingExtTrans', view:'panel', done:s=>s.sw.wingExtTrans==='auto'},
+ tgt:'wingExtTrans', view:'front', done:s=>s.sw.wingExtTrans==='auto'},
 {n:42, g:'3 · Pilot Post-Start', t:'UHF 1 function selector — <b>BOTH</b>',
- tgt:'uhfFunc', view:'console', done:s=>s.sw.uhfFunc==='both'},
+ tgt:'uhfFunc', view:'consoles', done:s=>s.sw.uhfFunc==='both'},
 {n:43, g:'3 · Pilot Post-Start', t:'TACAN function selector — <b>T/R</b>',
- tgt:'tacanFunc', view:'console', done:s=>s.sw.tacanFunc==='tr'},
+ tgt:'tacanFunc', view:'consoles', done:s=>s.sw.tacanFunc==='tr'},
 {n:44, g:'3 · Pilot Post-Start', t:'ARA-63 ICLS receiver power — <b>ON</b>',
- tgt:'ara63', view:'console', done:s=>s.sw.ara63==='on'},
+ tgt:'ara63', view:'consoles', done:s=>s.sw.ara63==='on'},
 {n:45, g:'3 · Pilot Post-Start', t:'Radar altimeter — one click <b>clockwise</b> to start BIT',
  note:'The self-test sweeps the needle to maximum and straight back to zero. The 100 ±5 ft indication is the pilot-initiated BIT, held on the button.',
- tgt:'radAltKnob', view:'panel', done:s=>s.radalt.bitDone},
+ tgt:'radAltKnob', view:'front', done:s=>s.radalt.bitDone},
 {n:46, g:'3 · Pilot Post-Start', t:'Standby ADI — <b>erect the gyro</b>',
  note:'At least two minutes before takeoff. Pull and turn the knob until the ball matches your attitude.',
- tgt:'stbyAdi', view:'panel', done:s=>s.sw.stbyAdi==='erect'},
+ tgt:'stbyAdi', view:'front', done:s=>s.sw.stbyAdi==='erect'},
 {n:47, g:'3 · Pilot Post-Start', t:'Jester — datalink <b>mode and host</b> set',
  note:'A, A → LCTRL+7 DATA LINK RADIO → SET MODE → Tactical Datalink System, then SET HOST.',
  tgt:'comms:jester', done:s=>s.dl.mode&&s.dl.host},
 {n:48, g:'3 · Pilot Post-Start', t:'Set <b>lights as required</b>, then taxi when ready. <b>Ready to taxi.</b>',
  note:'Guide steps 56–58 and 61 (kneeboard pages and the KY-28 encryption key) have no equivalent here — there is no kneeboard to open.',
- tgt:'extLights', view:'console', done:s=>s.touched.extLights&&s.ins.complete},
+ tgt:'extLights', view:'consoles', done:s=>s.touched.extLights&&s.ins.complete},
 
 /* ---------------- 4. BEFORE TAKEOFF (guide Part 5, steps 8-9) ---------------- */
 {n:49, g:'4 · Out of Oversweep', t:'Emergency Wing Sweep handle — <b>full forward to 20°</b>',
  note:'Scroll the wheel or left-click and drag the handle all the way forward.',
- tgt:'wingSweep', view:'console', done:s=>s.sw.wingSweep!=='oversweep'},
+ tgt:'wingSweep', view:'consoles', done:s=>s.sw.wingSweep!=='oversweep'},
 {n:50, g:'4 · Out of Oversweep', t:'Push the handle <b>down into the detent</b> and flip the cover over it',
  note:'Right-click to seat it. Until it is in the detent the wings stay in emergency mode.',
- tgt:'wingSweep', view:'console', done:s=>s.sw.wingSweep==='detent'},
+ tgt:'wingSweep', view:'consoles', done:s=>s.sw.wingSweep==='detent'},
 {n:51, g:'4 · Out of Oversweep', t:'Press <b>MASTER RESET</b> — resets the CADC',
  note:'Very important. Without it the wing sweep AUTO mode will not work properly, and the thumb switch will not either.',
- tgt:'masterReset', view:'panel', done:s=>s.cadcReset&&s.sw.wingSweep==='detent'},
+ tgt:'masterReset', view:'front', done:s=>s.cadcReset&&s.sw.wingSweep==='detent'},
 {n:52, g:'4 · Out of Oversweep', t:'Wings driving to <b>20°</b> — AUTO mode restored',
- tgt:'wingSweep', view:'console', done:s=>s.sweep<=20.5&&s.cadcReset},
+ tgt:'wingSweep', view:'consoles', done:s=>s.sweep<=20.5&&s.cadcReset},
 ];

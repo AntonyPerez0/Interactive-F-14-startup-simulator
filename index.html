@@ -10,10 +10,10 @@
 
 <div id="top">
   <div id="brand"><b data-brand>F-14B</b><span>Cockpit Trainer</span></div>
-  <div class="seats" id="seats"></div>
   <div class="tabs" id="tabs"></div>
   <div id="topright">
     <button class="chip" id="timechip" title="Time compression">1×</button>
+    <button class="chip" id="dirchip" title="Which way a tap moves a switch">Tap ▲</button>
     <button class="chip" id="labelchip">Labels</button>
     <button class="chip on" id="modechip">Guided</button>
   </div>
@@ -47,28 +47,13 @@
       </div>
     </div>
 
-    <div id="gate">
-      <div class="card">
-        <div class="kick" data-gate-kick>Grumman · Fleet Defense Interceptor</div>
-        <h1>Cold &amp; Dark to Ready&nbsp;to&nbsp;Taxi<small data-gate-sub></small></h1>
-        <p>Every switch below is live. Work the checklist on the right; the trainer watches
-           the aircraft state and ticks each line off when the jet actually gets there.</p>
-        <ul>
-          <li><b>CLICK</b> Left-click a control to move it up / forward</li>
-          <li><b>R-CLICK</b> Right-click to move it down / aft</li>
-          <li><b>\</b> Ground crew radio menu &nbsp;·&nbsp; <b>A</b> Jester menu</li>
-          <li><b>H</b> Highlights the control the next step needs</li>
-          <li><b>⇧K</b> Kneeboard &nbsp;·&nbsp; <b>[ ]</b> Page through it</li>
-        </ul>
-        <div class="gaterow">
-          <button class="btn pri" id="gateStart">Begin</button>
-          <button class="btn" id="gateFree">Free play (no checklist)</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div id="rail">
+    <button id="railgrab" aria-label="Close the checklist">
+      <span class="grabpill"></span>
+      <span class="grabtext">Close</span>
+    </button>
     <div class="railhead">
       <div class="eyebrow">Kneeboard</div>
       <h2 id="phaseName">—</h2>
@@ -78,13 +63,22 @@
     <div id="railfoot">
       <button class="btn pri" id="btnHint">Show me (H)</button>
       <button class="btn" id="btnSkip">Skip step</button>
-      <button class="btn" id="btnReset">Cold &amp; dark</button>
+      <button class="btn" id="btnReset">Restart</button>
       <button class="btn" id="btnScramble" title="Reset, then mis-set switches you are meant to check">Scramble</button>
-      <button class="btn" id="btnVariant" style="display:none">Shore</button>
+      <button class="btn" id="btnMenu">Menu</button>
       <button class="btn" id="btnKnee">Kneeboard</button>
-      <button class="btn" id="btnEdit">Calibrate</button>
+      <button class="btn deskonly" id="btnEdit">Calibrate</button>
     </div>
   </div>
+</div>
+
+<div id="stepbar">
+  <button id="stepbarOpen">
+    <span id="stepbarN"></span>
+    <span id="stepbarT">—</span>
+  </button>
+  <button id="stepbarShow">Show me</button>
+  <button id="stepbarC" aria-label="Open the checklist">▲</button>
 </div>
 
 <div id="strip"></div>

@@ -8,7 +8,8 @@ import { createSim } from './sim.js';
 import { createViews } from './views.js';
 import { createChecklist } from './checklist.js';
 import { createKneecard } from './kneecard.js';
-import { byId } from '../aircraft/registry.js';
+import { createMenu } from './menu.js';
+import { catalogue, byId } from '../aircraft/registry.js';
 
 const ac  = byId(new URLSearchParams(location.search).get('aircraft') || 'f14b');
 const sim = createSim(ac);
@@ -19,22 +20,9 @@ const KB  = createKneecard(sim, ac);
 sim.on((m, k) => toast(m, k));
 
 /* ---------------- chrome built from the aircraft ---------------- */
-const crews = [...new Set(ac.views.map(v => v.crew))];
-const crewLabel = { pilot: 'Pilot', rio: 'RIO' };
-let crew = crews[0];
+let crew = ac.views[0].crew;
 
 document.querySelector('[data-brand]').textContent = ac.name.split(' ')[0];
-document.querySelector('[data-gate-sub]').textContent = ac.source;
-
-const seats = $('#seats');
-crews.forEach((c, i) => {
-  const b = el('button', 'seat' + (i === 0 ? ' on' : ''));
-  b.dataset.crew = c;
-  b.textContent = crewLabel[c] || c;
-  b.addEventListener('click', () => setCrew(c));
-  seats.appendChild(b);
-});
-if (crews.length < 2) seats.style.display = 'none';
 
 const tabs = $('#tabs');
 ac.views.forEach((v, i) => {
@@ -72,51 +60,59 @@ const cautionLamps = ac.cautions.map(([id, label]) => {
   return { id, node: d };
 });
 
-/* ---------------- procedures ---------------- */
-const proceduresFor = c => ac.procedures.filter(p => p.meta.crew === c);
-let variantIdx = 0;
+/* ---------------- procedures, chosen from the home screen ---------------- */
+const menu = createMenu(catalogue, (_ac, procedure) => startProcedure(procedure));
 
-function setCrew(c) {
-  if (c === crew) return;
-  crew = c;
-  document.querySelectorAll('.seat').forEach(b => b.classList.toggle('on', b.dataset.crew === c));
-  document.querySelectorAll('.tab').forEach(b => { b.style.display = b.dataset.crew === c ? '' : 'none'; });
-  const list = proceduresFor(c);
-  $('#btnVariant').style.display = list.length > 1 ? '' : 'none';
-  variantIdx = 0;
-  hardReset(list[0]);
-  V.setView(ac.views.find(v => v.crew === c).id);
-  toast(c === 'rio'
-    ? 'Back seat. The front-seater runs his own start-up — listen for his calls.'
-    : 'Front seat. Jester handles the RIO side.', 'radio');
-}
+let current = null;
 
-function hardReset(procedure) {
+function startProcedure(procedure) {
+  current = procedure;
+  crew = procedure.meta.crew;
+  document.querySelectorAll('.tab').forEach(b => {
+    b.style.display = b.dataset.crew === crew ? '' : 'none';
+  });
   sim.reset();
   sim.S.rioSeat = (crew === 'rio');
+  if (procedure.setup) procedure.setup(sim);
   K.resetProgress();
-  if (procedure) K.setProcedure(procedure);
-  else K.build();
-  KB.render();
+  K.setProcedure(procedure);
+  K.runStart = sim.S.t;
   $('#timechip').textContent = '1×';
   $('#timechip').classList.remove('warn');
   closeComms();
+  KB.render();
+  const first = ac.views.find(v => v.id === procedure.meta.view) || ac.views.find(v => v.crew === crew);
+  V.view = null;
+  V.setView(first.id);
+  V.fit();
+  setRail(false);
+  toast(procedure.meta.name, 'radio');
 }
 
-$('#btnVariant').onclick = () => {
-  const list = proceduresFor(crew);
-  variantIdx = (variantIdx + 1) % list.length;
-  const p = list[variantIdx];
-  $('#btnVariant').textContent = p.meta.variant
-    ? p.meta.variant[0].toUpperCase() + p.meta.variant.slice(1)
-    : p.meta.name;
-  hardReset(p);
-  toast(p.meta.name, 'radio');
-};
+function hardReset() {
+  sim.reset();
+  sim.S.rioSeat = (crew === 'rio');
+  if (current && current.setup) current.setup(sim);   // a landing restarts in the air
+  K.resetProgress();
+  K.build();
+  $('#timechip').textContent = '1×';
+  $('#timechip').classList.remove('warn');
+  closeComms();
+  KB.render();
+}
 
 /* ---------------- input ---------------- */
 const stage = $('#stage');
 stage.addEventListener('contextmenu', e => e.preventDefault());
+
+let tapDir = 1;                       // touch has no right button
+$('#dirchip').onclick = () => {
+  tapDir = -tapDir;
+  $('#dirchip').textContent = tapDir > 0 ? 'Tap ▲' : 'Tap ▼';
+  $('#dirchip').classList.toggle('warn', tapDir < 0);
+  toast(tapDir > 0 ? 'A tap now moves switches up / forward.'
+                   : 'A tap now moves switches down / aft — the right-click direction.', 'radio');
+};
 
 const onClick = (e, dir) => {
   const hs = e.target.closest('.hs');
@@ -131,14 +127,14 @@ const onClick = (e, dir) => {
   }
   sim.click(c.id, dir, frac);
 };
-$('#world').addEventListener('click', e => onClick(e, 1));
+$('#world').addEventListener('click', e => onClick(e, tapDir));
 $('#world').addEventListener('contextmenu', e => onClick(e, -1));
 
 V.mount();
 KB.mount();
 V.tray.addEventListener('click', e => {
   const b = e.target.closest('button[data-tray]');
-  if (b) sim.click(b.dataset.tray, 1);
+  if (b) sim.click(b.dataset.tray, tapDir);
 });
 V.tray.addEventListener('contextmenu', e => {
   const b = e.target.closest('button[data-tray]');
@@ -267,7 +263,10 @@ K.onHint = hint;
 
 $('#btnHint').onclick  = hint;
 $('#btnSkip').onclick  = () => K.skip();
-$('#btnReset').onclick = () => { hardReset(); toast('Cold and dark.', 'good'); };
+$('#btnReset').onclick = () => {
+  hardReset();
+  toast(current && current.setup ? 'Back to the start of the approach.' : 'Cold and dark.', 'good');
+};
 $('#btnScramble').onclick = () => {
   hardReset();
   const wrong = ac.scramble || {};
@@ -275,14 +274,35 @@ $('#btnScramble').onclick = () => {
   (picked.length ? picked : Object.keys(wrong).slice(0, 2)).forEach(k => { sim.S.sw[k] = wrong[k]; });
   toast('Cockpit scrambled — check before you start.', 'radio');
 };
+const setRail = open => {
+  document.body.classList.toggle('rail-open', open);
+  $('#stepbarC').textContent = open ? '▼' : '▲';
+};
+// three separate targets: the text and the chevron open the sheet, Show me does not
+const toggleRail = () => setRail(!document.body.classList.contains('rail-open'));
+$('#stepbarOpen').onclick = toggleRail;
+$('#stepbarC').onclick    = toggleRail;
+$('#stepbarShow').onclick = e => { e.stopPropagation(); hint(); };
+$('#railgrab').onclick = () => setRail(false);
+
+// swipe the handle down to dismiss
+{
+  let y0 = null;
+  const grab = $('#railgrab');
+  grab.addEventListener('pointerdown', e => { y0 = e.clientY; });
+  grab.addEventListener('pointermove', e => {
+    if (y0 !== null && e.clientY - y0 > 40) { setRail(false); y0 = null; }
+  });
+  grab.addEventListener('pointerup', () => { y0 = null; });
+  grab.addEventListener('pointercancel', () => { y0 = null; });
+}
+$('#btnMenu').onclick = () => menu.open('procs');
 $('#btnKnee').onclick = () => KB.toggle();
 $('#btnEdit').onclick = () => V.setEdit(true);
 $('#edDone').onclick  = () => V.setEdit(false);
 $('#edCopy').onclick  = () => V.copyLayout();
 $('#doneStay').onclick  = () => $('#done').classList.add('gone');
 $('#doneAgain').onclick = () => { $('#done').classList.add('gone'); $('#btnReset').click(); };
-$('#gateStart').onclick = () => { $('#gate').classList.add('gone'); K.runStart = sim.S.t; };
-$('#gateFree').onclick  = () => { $('#gate').classList.add('gone'); $('#modechip').click(); };
 
 /* ---------------- radio menus ---------------- */
 let commsMenu = null;
@@ -316,11 +336,12 @@ window.addEventListener('keydown', e => {
   if (k === '\\') { e.preventDefault(); toggleComms('ground'); }
   else if (k === 'a') toggleComms('jester');
   else if (k === 'h') hint();
-  else if (k === 'escape') { closeComms(); KB.toggle(false); V.setEdit(false); }
+  else if (k === 'escape') { closeComms(); KB.toggle(false); V.setEdit(false); setRail(false); }
   else if (k === 'k' && e.shiftKey) { e.preventDefault(); KB.toggle(); }
   else if (k === '[') KB.step(-1);
   else if (k === ']') KB.step(1);
   else if (k === 'f') V.fit();
+  else if (k === 'm') menu.open('procs');
   else if (/^[1-9]$/.test(k)) {
     const v = ac.views.filter(v => v.crew === crew)[+k - 1];
     if (v) V.setView(v.id);
@@ -330,18 +351,24 @@ window.addEventListener('keydown', e => {
 /* ---------------- frame loop ---------------- */
 K.build();
 V.fit();
+menu.mount();
+menu.open();
 let last = performance.now();
 function frame(now) {
   const dt = (now - last) / 1000;
   last = now;
   sim.tick(dt);
-  K.check();
+  K.check(Math.min(0.25, dt));   // real seconds, for the flown-step dwell
   const tgt = K.target();
   V.render(isMenuTarget(tgt) ? null : tgt);
   K.render();
 
   const S = sim.S;
   stripCells.forEach(c => { c.node.textContent = c.read(S); });
+  const cur = K.current();
+  $('#stepbarN').textContent = cur && !K.completed ? cur.n : '';
+  $('#stepbarT').textContent = K.completed ? 'Complete'
+    : (cur ? cur.t.replace(/<[^>]+>/g, '') : '—');
   cautionLamps.forEach(c => { c.node.classList.toggle('on', !!S.caution[c.id]); });
   requestAnimationFrame(frame);
 }

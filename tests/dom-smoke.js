@@ -98,10 +98,35 @@ function matches(n, sel) {
   });
 }
 
-/* index.html is parsed just far enough to know which ids exist */
 import { readFileSync } from 'node:fs';
+
+/* An inline style always beats a stylesheet rule, so a `display` set inline can
+   never be overridden by CSS. That is what stopped the tray collapsing. */
+{
+  const src = ['views.js', 'app.js', 'menu.js', 'kneecard.js', 'checklist.js']
+    .map(f => readFileSync(new URL('../src/core/' + f, import.meta.url), 'utf8')).join('\n');
+  const css = readFileSync(new URL('../src/core/style.css', import.meta.url), 'utf8');
+  const bad = [];
+  for (const m of css.matchAll(/([#.][\w-]+(?:\.[\w-]+)?[^{]*)\{[^}]*display\s*:[^;}]+/g)) {
+    const sel = m[1].trim();
+    const cls = sel.match(/\.([\w-]+)\s*$/);
+    if (!cls) continue;
+    // does the JS set display inline on an element carrying that class?
+    const re = new RegExp("'" + cls[1] + "'[\\s\\S]{0,400}?cssText\\s*=\\s*'[^']*display:");
+    if (re.test(src)) bad.push(sel);
+  }
+  if (bad.length) { console.log('  FAIL  CSS display rule can never win against an inline style: ' + bad.join(', ')); process.exit(1); }
+  console.log('  PASS  no display rule is blocked by an inline style');
+}
+
+/* index.html is parsed just far enough to know which ids exist */
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const ids = [...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]);
+const dupes = [...new Set(ids.filter(i => ids.filter(j => j === i).length > 1))];
+if (dupes.length) {
+  console.log('  FAIL  duplicate ids in index.html: ' + dupes.join(', '));
+  process.exit(1);
+}
 const byId = Object.fromEntries(ids.map(id => [id, makeEl()]));
 const byAttr = { '[data-brand]': makeEl(), '[data-gate-sub]': makeEl() };
 const registry = [];

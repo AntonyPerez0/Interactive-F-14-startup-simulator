@@ -1,7 +1,7 @@
 /* F-14B · RIO INS ALIGNMENT (CARRIER) — guide Part 4 section 5, plus section 6. */
 import { RIO_PRE, RIO_POST } from './rio-common.js';
 
-export const meta = { id:'rio-carrier', crew:'rio', variant:'carrier',
+export const meta = { id:'rio-carrier', crew:'rio', phase:'startup', variant:'carrier',
                       name:'INS alignment · carrier', view:'rioL' };
 
 export const MID = [

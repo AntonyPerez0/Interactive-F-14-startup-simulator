@@ -51,10 +51,11 @@ src/core/                      everything aircraft-agnostic
   views.js                     photos, pan/zoom, hotspots, instruments, calibration
   checklist.js                 step gating, progress, completion card
   kneecard.js                  the in-game kneeboard (RSHIFT+K, page with [ and ])
-  app.js                       bootstrap, seats, tabs, radio menus, frame loop
+  menu.js                      home screen: aircraft, then procedure by phase
+  app.js                       bootstrap, tabs, radio menus, frame loop
   dom.js  style.css
 src/aircraft/
-  registry.js                  the list of available aircraft
+  registry.js                  built modules, plus the hangar catalogue
   f14b/
     index.js                   manifest: views, procedures, menus, status strip
     controls.js                every switch, with its photo coordinates
@@ -80,9 +81,23 @@ export const steps = [
 ];
 ```
 
-Then add it to the `procedures` array in `src/aircraft/f14b/index.js`. Anything
-with more than one procedure per seat gets a variant button in the kneeboard
-footer automatically.
+Then add it to the `procedures` array in `src/aircraft/f14b/index.js`. It appears
+on the home screen automatically, filed under its `phase` — `startup`, `landing`
+or `shutdown`. A phase with nothing in it shows as "Not built yet".
+
+`meta` needs `id`, `crew`, `phase`, `name` and `view` (the tab to open on).
+
+A procedure may also export `setup(sim)`, run straight after the reset, to hand
+the aircraft over in some other state. The landing procedures use
+`setAirborne()` — engines at half throttle, generators on, hydraulics up, INS
+aligned, gear and flaps away — because a landing obviously does not start cold
+and dark. **Restart** re-applies it.
+
+Steps that are flown rather than switched carry `ack:true` and a `done` that
+never returns true. Tap the line to confirm one, or leave it and it confirms
+itself after five real seconds — the badge counts down. Override the dwell with
+`hold: <seconds>` per step, or `hold: 0` to require a tap. The landing
+procedures use these for the pattern work.
 
 A step is just `done(state) -> boolean`. Steps are gated in order, so one whose
 condition already holds on a cold jet still waits its turn instead of passing
@@ -97,6 +112,10 @@ A control may also declare `ctx`, naming a readout that should stay on screen
 when **Show me** frames it — the CAP keys do this so the TID line showing what
 you have typed stays visible while you type. Framing fits everything named at
 once rather than zooming to a fixed level.
+
+`view` names the tab the step belongs to and must match where its control lives —
+a test enforces that. **Show me** derives the view from the control itself, so a
+wrong value is harmless but misleading.
 
 `tgt` names the control the cue ring and the **Show me** button point at. It can
 also be a function of state, which is how a multi-press sequence walks the cue
@@ -133,7 +152,9 @@ points at a radio menu.
 
 ## Adding an aircraft
 
-Copy the shape of `src/aircraft/f14b/`:
+The hangar lists every entry in `catalogue` in `src/aircraft/registry.js`.
+Entries without a `module` are shown greyed out, so the list doubles as a
+roadmap. To build one, copy the shape of `src/aircraft/f14b/`:
 
 - `controls.js` — one record per switch with its pixel position in the photo,
   its states listed bottom-to-top, and the label for each state
@@ -141,9 +162,14 @@ Copy the shape of `src/aircraft/f14b/`:
 - `systems.js` — `initState`, `onChange`, `tick`; the core calls these and knows
   nothing else about the jet
 - `index.js` — views, procedures, radio menus, status strip
-- register it in `src/aircraft/registry.js`
+- import it in `src/aircraft/registry.js`, add it to `aircraft`, and hang it on
+  its catalogue entry as `module`
 
-Then `?aircraft=<id>` selects it.
+It then appears as selectable in the hangar. `?aircraft=<id>` still works for
+jumping straight in.
+
+The catalogue reflects the DCS line-up as I knew it; add or correct entries
+freely — they are plain data.
 
 ## Placing hotspots
 

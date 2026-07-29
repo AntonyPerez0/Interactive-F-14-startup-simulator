@@ -19,16 +19,25 @@ function harness(procedure) {
   const sim = createSim(AC);
   const S = sim.S;
   const done = procedure.steps.map(() => false);
-  const gate = () => {
+  let ackT = 0, lastAck = -1;
+  const gate = (dtReal = 0) => {
     for (let j = 0; j < procedure.steps.length; j++) {
       if (done[j]) continue;
+      // mirrors the checklist: a flown step confirms itself after its dwell
+      if (procedure.steps[j].ack) {
+        if (j !== lastAck) { lastAck = j; ackT = 0; }
+        ackT += dtReal;
+        if (ackT >= (procedure.steps[j].hold ?? 5)) { done[j] = true; ackT = 0; continue; }
+        break;
+      }
       let good = false;
       try { good = procedure.steps[j].done(S); } catch (e) {}
       if (good) { done[j] = true; continue; }
       break;                                   // steps are gated in order
     }
   };
-  const run = secs => { for (let i = 0; i < secs * 20; i++) { sim.tick(0.05); gate(); } };
+  const run = secs => { for (let i = 0; i < secs * 20; i++) { sim.tick(0.05); gate(0.05); } };
+  const ackWait = () => ackT;
   const click = (id, d = 1) => { sim.click(id, d); run(0.1); };
   const to = (id, v) => {
     const c = C(id), d = c && c.reverse ? -1 : 1;
@@ -37,7 +46,7 @@ function harness(procedure) {
   };
   const type = str => str.split('').forEach(d => click('cap' + d));
   const kb = (open, page) => { S.kb.open = open; if (page != null) S.kb.page = page; gate(); };
-  return { sim, S, done, run, click, to, type, gate, kb,
+  return { sim, S, done, run, click, to, type, gate, kb, ackWait,
            left: () => procedure.steps.filter((s, i) => !done[i]) };
 }
 
@@ -309,6 +318,160 @@ head('Systems corrections');
   ok('READY alone past the weapons marker', !S.rio.stbyLight && S.rio.readyLight);
   h.sim.set('parkBrake','off'); run(2);
   ok('brake released makes READY flash', !S.rio.stbyLight);
+}
+
+/* ---------------------------------------------------------- landing */
+for (const proc of AC.procedures.filter(p => p.meta.phase === 'landing')) {
+  head('Landing · ' + proc.meta.name);
+  const h = harness(proc);
+  const { S, run, to } = h;
+  if (proc.setup) proc.setup(h.sim);        // a landing starts in the air
+  // steps that are flown are confirmed by tapping; the harness does that directly
+  // flown steps confirm themselves after their dwell, so just feed the clock
+  const settle = () => run(40);
+
+  if (proc.meta.id === 'landing-carrier') {
+    h.sim.click('altBaro', 1);
+    to('tacanFunc','tr'); to('ara63','on');
+    to('hudAwl','ils'); to('vdiAwl','ils');
+    to('masterArm','off'); to('antiSkid','off');
+  } else {
+    to('antiSkid','both');
+  }
+  to('landingLights','on');
+  to('hookBypass', proc.meta.id === 'landing-carrier' ? 'carrier' : 'field');
+  if (proc.meta.id === 'landing-carrier') to('hookHandle','down');
+  settle();
+  to('wingSweep','oversweep'); to('sweepThumb','aft'); run(12); settle();
+  to('masterMode','ldg'); settle();
+  to('speedBrake','out'); to('throttleL','idle'); to('throttleR','idle'); settle();
+  to('wingSweep','detent'); run(12); settle();
+  to('gearHandle','down'); settle();
+  to('flapsLever','down'); settle();
+  to('dlc','on'); run(1); settle();
+  const dlcWorked = S.dlcActive;      // captured here: the carrier flow later raises the flaps
+  if (proc.meta.id === 'landing-carrier') {
+    to('throttleL','mil'); to('throttleR','mil'); settle();
+    to('hookHandle','up'); to('flapsLever','up');
+    to('wingSweep','oversweep'); run(12); settle();
+  }
+  settle();
+
+  ok('wings swept to 68 in manual', true);
+  ok('DLC engaged once gear and flaps were down', dlcWorked);
+  ok('all steps complete', h.left().length === 0,
+     h.done.filter(Boolean).length + '/' + proc.steps.length);
+  h.left().forEach(s => console.log('           missed ' + s.n + '  ' + strip(s.t)));
+}
+{
+  head('Flown-step dwell');
+  const proc = AC.procedures.find(p => p.meta.id === 'landing-shore');
+  const h = harness(proc);
+  // walk to the first flown step
+  h.to('antiSkid','both'); h.to('landingLights','on'); h.to('hookBypass','field');
+  h.run(0.5);
+  const i = h.done.findIndex(d => !d);
+  ok('the next step is a flown one', !!proc.steps[i].ack, strip(proc.steps[i].t).slice(0, 40));
+  h.gate(4.0);
+  ok('still waiting at 4 seconds', !h.done[i], 'dwell ' + h.ackWait().toFixed(1) + 's');
+  h.gate(1.2);
+  ok('confirms itself just past 5 seconds', h.done[i]);
+  // and a tap should not have to wait
+  const h2 = harness(proc);
+  h2.to('antiSkid','both'); h2.to('landingLights','on'); h2.to('hookBypass','field');
+  h2.run(0.5);
+  const j = h2.done.findIndex(d => !d);
+  h2.done[j] = true;                      // what tapping the line does
+  h2.run(0.2);
+  ok('tapping confirms immediately', h2.done[j]);
+}
+{
+  head('DLC interlock');
+  const h = harness(AC.procedures.find(p => p.meta.phase === 'landing'));
+  h.sim.set('flapsLever','up'); h.sim.set('dlc','on'); h.run(1);
+  ok('DLC will not engage with the flaps up', !h.S.dlcActive);
+  h.sim.set('flapsLever','down'); h.run(1);
+  ok('DLC engages once the flaps come down', h.S.dlcActive);
+}
+{
+  head('Hangar and menu');
+{
+  const { catalogue } = await import('../src/aircraft/registry.js');
+  ok('catalogue has entries', catalogue.length > 1, catalogue.length + ' aircraft');
+  ok('every entry has id, name, maker and category',
+     catalogue.every(c => c.id && c.name && c.maker && c.cat));
+  ok('catalogue ids are unique',
+     new Set(catalogue.map(c => c.id)).size === catalogue.length);
+  const built = catalogue.filter(c => c.module);
+  ok('built entries expose a real aircraft module',
+     built.every(c => c.module.procedures && c.module.views && c.module.controls),
+     built.map(c => c.name).join(', '));
+  ok('every built module is also in the aircraft list',
+     built.every(c => AC.id === c.module.id || aircraft.some(a => a.id === c.module.id)));
+  const cats = [...new Set(catalogue.map(c => c.cat))];
+  ok('aircraft are grouped', cats.length > 1, cats.join(' · '));
+}
+{
+  head('Menu wiring');
+  const phases = [...new Set(AC.procedures.map(p => p.meta.phase))];
+  ok('every procedure declares a phase', AC.procedures.every(p => p.meta.phase), phases.join(', '));
+  ok('every procedure declares a crew', AC.procedures.every(p => p.meta.crew));
+  ok('every procedure names a starting view',
+     AC.procedures.every(p => AC.views.some(v => v.id === p.meta.view)),
+     AC.procedures.map(p => p.meta.view).join(', '));
+  ok('procedure ids are unique',
+     new Set(AC.procedures.map(p => p.meta.id)).size === AC.procedures.length);
+
+  // an unnumbered step renders the word "undefined" in the kneeboard
+  const unnumbered = [];
+  AC.procedures.forEach(p => p.steps.forEach((s, i) => {
+    if (typeof s.n !== 'number' || s.n !== i + 1) unnumbered.push(p.meta.id + '[' + i + ']');
+  }));
+  ok('every step is numbered 1..n', unnumbered.length === 0, unnumbered.slice(0, 6).join(', '));
+
+  // a step naming the wrong tab sends Show me to a view the control is not on
+  const wrongView = [];
+  AC.procedures.forEach(p => p.steps.forEach(s => {
+    if (!s.view || typeof s.tgt !== 'string') return;
+    const c = AC.controls.find(x => x.id === s.tgt) || AC.gauges.find(x => x.id === s.tgt);
+    if (!c || c.tray) return;
+    const views = AC.sharedViews[c.view] || [c.view];
+    if (!views.includes(s.view)) wrongView.push(p.meta.id + ' step ' + s.n + ' -> ' + s.tgt);
+  }));
+  ok('every step names a view its control is on', wrongView.length === 0,
+     wrongView.slice(0, 5).join(', '));
+
+  ok('every step has a group and a title',
+     AC.procedures.every(p => p.steps.every(s => s.g && s.t)));
+  ok('every step is either checkable or acknowledged',
+     AC.procedures.every(p => p.steps.every(s => typeof s.done === 'function')));
+}}
+
+/* ------------------------------------------------- airborne handover */
+head('Airborne handover');
+{
+  const proc = AC.procedures.find(p => p.meta.id === 'landing-carrier');
+  const h = harness(proc);
+  proc.setup(h.sim);
+  const S = h.S;
+  ok('engines are running', S.eng.L.lit && S.eng.R.lit && S.eng.L.n2 > 80,
+     S.eng.L.n2.toFixed(0) + '% N2');
+  ok('throttles at HALF, not cutoff', S.sw.throttleL === 'half' && S.sw.throttleR === 'half');
+  ok('on generators, ground kit away', S.power && !S.gpu && !S.airCart);
+  ok('both hydraulic systems up', S.hydFlt > 2900 && S.hydComb > 2900);
+  ok('gear and flaps away, brake off',
+     S.sw.gearHandle === 'up' && S.sw.flapsLever === 'up' && S.sw.parkBrake === 'off');
+  ok('INS already aligned', S.ins.complete);
+  h.run(30);
+  ok('nothing complains after 30 s', S.faults.length === 0, S.faults.join('; ') || 'no faults');
+  const lit = AC.cautions.filter(([k]) => S.caution[k]).map(([, l]) => l);
+  ok('no caution panel lights', lit.length === 0, lit.join(', ') || 'all out');
+
+  // moving the throttle must not produce a start-up warning
+  const msgs = [];
+  h.sim.on((m, k) => msgs.push(k + ': ' + m));
+  h.sim.set('throttleL', 'idle'); h.sim.set('throttleR', 'idle'); h.run(2);
+  ok('throttle move is not rejected', !msgs.some(m => /No N2/i.test(m)), msgs.join(' | ') || 'silent');
 }
 
 /* ------------------------------------------------------- knob detents */

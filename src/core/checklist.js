@@ -14,6 +14,7 @@ export function createChecklist(sim, ac) {
     done: {},                       // keyed by procedure id, so lists can never cross
     curStep: 0,
     completed: false, skips: 0, runStart: 0,
+    ackT: 0, ackHold: 5,          // a flown step confirms itself after this many seconds
 
     steps() { return this.procedure.steps; },
     key()   { return this.procedure.meta.id; },
@@ -60,17 +61,28 @@ export function createChecklist(sim, ac) {
         }
         const d = el('div', 'step');
         d.dataset.i = i;
-        d.innerHTML = `<div class="n">${st.n}</div><div class="t">${st.t}` +
-          (st.note ? `<span class="note">${st.note}</span>` : '') + `</div>`;
-        d.addEventListener('click', () => { this.curStep = i; this.onHint?.(); });
+        const hold = st.ack ? (st.hold ?? this.ackHold) : 0;
+        d.innerHTML = `<div class="n">${st.n ?? i + 1}</div><div class="t">${st.t}` +
+          (st.note ? `<span class="note">${st.note}</span>` : '') +
+          (st.ack ? `<span class="ackbadge" data-ack>${hold ? 'confirm' : 'tap to confirm'}</span>` : '') +
+          `</div>`;
+        if (st.ack) d.classList.add('ack');
+        d.addEventListener('click', () => {
+          // a step that is flown rather than switched is confirmed by tapping it
+          if (st.ack && i === this.curStep) { this.sync()[i] = true; return; }
+          this.curStep = i;
+          this.onHint?.();
+        });
         b.appendChild(d);
       });
     },
 
-    check() {
+    check(dtReal = 0) {
       const S = sim.S, L = this.steps(), done = this.sync();
+      const was = this.curStep;
       for (let i = 0; i < L.length; i++) {
         if (done[i]) continue;
+        if (L[i].ack) break;                 // waits for you to confirm it
         let ok = false;
         try { ok = L[i].done(S); } catch (e) {}
         if (ok) { done[i] = true; continue; }
@@ -78,6 +90,21 @@ export function createChecklist(sim, ac) {
       }
       const i = done.findIndex(d => !d);
       this.curStep = i < 0 ? L.length - 1 : i;
+      if (this.curStep !== was) this.ackT = 0;
+
+      /* A step that is flown rather than switched can be tapped, or it confirms
+         itself after a short dwell so the pattern keeps moving. Real seconds,
+         not aircraft seconds, so time compression does not blitz through it. */
+      const cur = L[this.curStep];
+      if (cur && cur.ack && !done[this.curStep]) {
+        const hold = cur.hold ?? this.ackHold;
+        if (hold > 0) {
+          this.ackT += dtReal;
+          if (this.ackT >= hold) { done[this.curStep] = true; this.ackT = 0; }
+        }
+      } else {
+        this.ackT = 0;
+      }
     },
 
     current() { return this.steps()[this.curStep]; },
@@ -110,6 +137,14 @@ export function createChecklist(sim, ac) {
         const i = +d.dataset.i;
         d.classList.toggle('done', !!done[i]);
         d.classList.toggle('now', i === this.curStep && !done[i]);
+        const badge = d.querySelector('[data-ack]');
+        if (badge) {
+          const st = this.steps()[i];
+          const hold = st.hold ?? this.ackHold;
+          badge.textContent = (i === this.curStep && !done[i] && hold > 0)
+            ? 'tap, or ' + Math.max(1, Math.ceil(hold - this.ackT)) + 's'
+            : (hold > 0 ? 'confirm' : 'tap to confirm');
+        }
       });
 
       const n = done.filter(Boolean).length, total = this.steps().length;

@@ -12,6 +12,8 @@ import * as systems from './systems.js';
 import * as pilotStart  from './procedures/pilot-start.js';
 import * as rioShore    from './procedures/rio-align-shore.js';
 import * as rioCarrier  from './procedures/rio-align-carrier.js';
+import * as landShore   from './procedures/landing-shore.js';
+import * as landCarrier from './procedures/landing-carrier.js';
 
 export default {
   id: 'f14b',
@@ -46,7 +48,9 @@ export default {
   insWeaponsReady: systems.insWeaponsReady,
   autopilot: systems.AUTOPILOT,
 
-  procedures: [pilotStart, rioShore, rioCarrier],
+  /* numbered here so no procedure file can forget, and an explicit n still wins */
+  procedures: [pilotStart, rioShore, rioCarrier, landShore, landCarrier]
+    .map(p => ({ ...p, steps: p.steps.map((s, i) => ({ n: i + 1, ...s })) })),
 
   /* ground crew and Jester menus */
   menus: {
