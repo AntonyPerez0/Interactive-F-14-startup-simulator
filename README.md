@@ -88,6 +88,11 @@ A step is just `done(state) -> boolean`. Steps are gated in order, so one whose
 condition already holds on a cold jet still waits its turn instead of passing
 for free.
 
+A rotary may declare `angles`, one entry per state, giving the angle of each
+printed detent in degrees with 0 pointing up and clockwise positive. Without it
+the pointer sweeps a generic arc, which moves but will not line up with the
+labels. Measure them off the photo rather than guessing.
+
 A control may also declare `ctx`, naming a readout that should stay on screen
 when **Show me** frames it — the CAP keys do this so the TID line showing what
 you have typed stays visible while you type. Framing fits everything named at

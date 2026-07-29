@@ -42,6 +42,8 @@ export default {
   /* aircraft-specific extras the UI can call */
   radio:     systems.radio,
   insPct:    systems.insPct,
+  insCaret:  systems.insCaret,
+  insWeaponsReady: systems.insWeaponsReady,
   autopilot: systems.AUTOPILOT,
 
   procedures: [pilotStart, rioShore, rioCarrier],
@@ -112,10 +114,20 @@ export default {
           rows: [
             ['CVN-74  J. C. STENNIS', '320.90', '20.9'],
             ['E-2C  AWACS',           '309.20', '09.2'],
+            ['E-2C  AWACS  (alt)',    '318.40', '18.4'],
+            ['FIGHTER LINK  4C',      '324.00', '24.0'],
           ],
         },
-        foot: 'The leading 3 is preset and cannot be changed — dial the last three digits only. '
-            + 'CAINS/WAYPT for a carrier alignment, TAC for everything else.',
+        rows: [
+          ['MODE',    'TAC'],
+          ['REPLY',   'NORM'],
+          ['ADDRESS', '01 lead \u00b7 02 wing \u00b7 03 elem \u00b7 04 elem wing'],
+        ],
+        foot: 'The leading 3 is preset — dial the last three digits only. '
+            + 'POWER ON is Link 4A, the AWACS and carrier link, up to 8 tracks. '
+            + 'POWER AUX is Link 4C, F-14 to F-14 only, 4 tracks plus your wingmen. '
+            + 'REPLY in CANC sends nothing back. Every jet in the flight needs its own ADDRESS. '
+            + 'Use CAINS/WAYPT on the mode switch for a carrier alignment, TAC otherwise.',
       },
     ],
   },
@@ -133,7 +145,7 @@ export default {
     { k:'FF pph L / R', read: s => f2(s.eng.L.ff, s.eng.R.ff) },
     { k:'Oil psi L / R',read: s => f2(s.eng.L.oil, s.eng.R.oil) },
     { k:'Nozzle % L/R', read: s => f2(s.eng.L.noz, s.eng.R.noz) },
-    { k:'Hyd FLT / CMB',read: s => f2(s.hydFlt, s.hydComb) },
+    { k:'Hyd CMB / FLT',read: s => f2(s.hydComb, s.hydFlt) },   // combined left, flight right
     { k:'Sweep',        read: s => s.sweep.toFixed(0) + '°' },
     { k:'INS align',    read: s => s.ins.complete ? 'ALIGNED'
                                  : (s.ins.mode ? Math.round(systems.insPct(s) * 100) + '%' : '—') },
@@ -142,6 +154,7 @@ export default {
   cautions: [
     ['startValve','START VALVE'], ['lGen','L GEN'], ['rGen','R GEN'],
     ['oilPress','OIL PRESS'], ['hydPress','HYD PRESS'], ['canopy','CANOPY'],
+    ['navComp','NAV COMP'], ['awg9Cond','AWG-9 COND'],
   ],
 };
 

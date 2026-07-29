@@ -125,7 +125,7 @@ export const steps = [
 {n:44, g:'3 · Pilot Post-Start', t:'ARA-63 ICLS receiver power — <b>ON</b>',
  tgt:'ara63', view:'console', done:s=>s.sw.ara63==='on'},
 {n:45, g:'3 · Pilot Post-Start', t:'Radar altimeter — one click <b>clockwise</b> to start BIT',
- note:'The needle slams to maximum as it powers up, then settles at 100 ±5 ft for the test before dropping back to 0.',
+ note:'The self-test sweeps the needle to maximum and straight back to zero. The 100 ±5 ft indication is the pilot-initiated BIT, held on the button.',
  tgt:'radAltKnob', view:'panel', done:s=>s.radalt.bitDone},
 {n:46, g:'3 · Pilot Post-Start', t:'Standby ADI — <b>erect the gyro</b>',
  note:'At least two minutes before takeoff. Pull and turn the knob until the ball matches your attitude.',

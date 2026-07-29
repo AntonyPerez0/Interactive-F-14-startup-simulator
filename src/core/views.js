@@ -239,8 +239,14 @@ export function createViews(sim, ac) {
           }
         }
         const knob = n.querySelector('.knob');
-        if (knob) knob.style.transform = `translate(-50%,-50%) rotate(${-70 + f * 140}deg)`;
+        if (knob) {
+          // a knob may name the angle of each printed detent; otherwise sweep a
+          // generic arc so the pointer at least moves
+          const ang = c.angles ? c.angles[idx] : (-70 + f * 140);
+          knob.style.transform = `translate(-50%,-50%) rotate(${ang}deg)`;
+        }
         n.classList.toggle('ok', idx > 0);
+        if (c.watch) n.classList.toggle('sel', !!S.caution[c.watch]);
       });
 
       /* cue ring on whatever the current step wants */
@@ -282,14 +288,16 @@ export function createViews(sim, ac) {
             ip.style.display = show ? 'block' : 'none';
             if (show) {
               n.style.opacity = 0.92;
-              const pct = ac.insPct(S);
+              const pct = ac.insCaret(S);
               ip.querySelector('[data-ins="caret"]').style.left = (7 + pct * 86) + '%';
               // the guide: the number is minutes in tenths, 23 = 2.3 min
               ip.querySelector('[data-ins="num"]').textContent =
                 String(Math.min(99, Math.floor(S.ins.t / 6))).padStart(2, '0');
-              const done = S.ins.complete;
-              ip.querySelector('[data-ins="chev"]').style.display = done ? 'none' : 'block';
-              ip.querySelector('[data-ins="dia"]').style.display  = done ? 'block' : 'none';
+              // the caret becomes a diamond once past the second marker,
+              // i.e. once the alignment is good enough to shoot with
+              const dia = ac.insWeaponsReady(S);
+              ip.querySelector('[data-ins="chev"]').style.display = dia ? 'none' : 'block';
+              ip.querySelector('[data-ins="dia"]').style.display  = dia ? 'block' : 'none';
             }
           }
         }
@@ -307,10 +315,11 @@ function insPanel() {
   p.innerHTML =
     // lat / long being aligned to, across the top of the TID
     '<div class="insrow"><span>LN 25&deg;01\'4</span><span>LE 55&deg;22\'6</span></div>' +
-    '<div class="instrack"></div>' +
+    '<div class="instrack">' +
+      '<u style="left:33.3%"></u><u style="left:66.6%"></u><u style="left:100%"></u>' +
+    '</div>' +
     // full fine marker at the end of the track
-    '<div style="position:absolute;left:93%;top:41%;width:2px;height:11px;' +
-      'background:currentColor;transform:translateX(-50%)"></div>' +
+
     // the progress caret walks the track; the number is minutes in tenths
     '<div data-ins="caret" style="position:absolute;top:30%;left:7%;transform:translateX(-50%);' +
       'text-align:center;line-height:1;transition:left .35s linear">' +

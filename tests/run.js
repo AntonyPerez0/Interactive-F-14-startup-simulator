@@ -100,7 +100,7 @@ for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio')) {
   ok('front-seater got both engines up', S.eng.L.n2 > 60 && S.eng.R.n2 > 60);
   ok('bleed air selected for the WCS', S.sw.airSource === 'both');
 
-  to('liquidCool','fwd'); to('wcsMode','stby'); run(45);
+  to('liquidCool','awg9'); to('wcsMode','stby'); run(45);
   ok('TID and DDD up after warm-up', S.rio.wcsUp);
 
   if (proc.meta.variant === 'carrier') {
@@ -127,7 +127,8 @@ for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio')) {
   to('vuhfFunc','trg'); to('rioTacanFunc','tr'); click('rioStbyAdi');
   to('irtvPower','stby'); to('alr67Power','on'); to('decmMode','stby');
   kb(true, 1);
-  to('dlPower','on'); to('dlModeSw','tac'); to('dlFreq','092'); kb(false);
+  to('dlPower','on'); to('dlModeSw','tac'); to('dlFreq','092');
+  to('dlReply','norm'); kb(false);
   to('iffMode4','on');
   to('ale39Mode','man'); to('flareMode','pilot');
   to('wcsMode','xmt'); to('irtvPower','on'); run(2);
@@ -239,6 +240,101 @@ head('Kneeboard');
   ok('every printed wheel setting is selectable', missing.length === 0, missing.join(', '));
 }
 
+/* --------------------------------------------- corrections from review 2 */
+head('Systems corrections');
+{
+  const h = harness(AC.procedures[0]);
+  const { S, run } = h;
+  AC.radio(h.sim, 'gpuOn'); AC.radio(h.sim, 'airOn'); h.sim.set('airSource','off');
+
+  // right engine drives FLIGHT, left drives COMBINED, independently
+  h.sim.set('hydTransfer','shutoff');
+  h.sim.click('engCrank', -1); run(14); h.to('throttleR','idle'); run(70);
+  ok('right engine pressurises FLIGHT only',
+     S.hydFlt > 2900 && S.hydComb < 100,
+     'flt ' + S.hydFlt.toFixed(0) + '  cmb ' + S.hydComb.toFixed(0));
+  h.sim.click('engCrank', 1); run(14); h.to('throttleL','idle'); run(70);
+  ok('left engine pressurises COMBINED', S.hydComb > 2900,
+     'flt ' + S.hydFlt.toFixed(0) + '  cmb ' + S.hydComb.toFixed(0));
+
+  // with the transfer pump in NORM one engine carries both systems
+  const h2 = harness(AC.procedures[0]);
+  h2.sim.S.gpu = true; h2.sim.S.airCart = true; h2.sim.set('airSource','off');
+  h2.sim.set('hydTransfer','norm');
+  h2.sim.click('engCrank', -1); h2.run(14); h2.to('throttleR','idle'); h2.run(70);
+  ok('transfer pump cross-connects the two systems',
+     h2.S.hydFlt > 2900 && h2.S.hydComb > 2900);
+
+  // status strip prints combined first
+  const cell = AC.strip.find(c => /Hyd/.test(c.k));
+  ok('strip reads CMB then FLT', /CMB \/ FLT/.test(cell.k), cell.k);
+}
+{
+  const h = harness(AC.procedures[0]);
+  const { S, run } = h;
+  S.gpu = true; h.sim.click('radAltKnob', 1); run(1);
+  const peak = S.radalt.value; run(6);
+  ok('RADALT self-BIT sweeps to max then zero',
+     peak >= 4000 && Math.round(S.radalt.value) === 0, 'peak ' + peak);
+}
+{
+  // alignment now runs to the DCS timings, with the caret in thirds
+  const h = harness(AC.procedures[1]);
+  const { S, run } = h;
+  S.rioSeat = true; run(150);
+  h.to('liquidCool','awg9'); h.to('wcsMode','stby');
+  const t0 = S.t; run(40);
+  ok('WCS up ~30 s after STANDBY', S.rio.wcsUp && S.t - t0 < 45);
+  h.to('navMode','gnd');
+  const at = mins => { while (S.ins.t < mins * 60) sim0(h); };
+  const sim0 = hh => { hh.sim.S.rate = 8; hh.run(1); hh.sim.S.rate = 1; };
+  at(2.0); ok('coarse marker at 2.0 min sits at a third',
+              Math.abs(AC.insCaret(S) - 1/3) < 0.02, AC.insCaret(S).toFixed(3));
+  at(4.9); ok('weapons marker at 4.9 min sits at two thirds',
+              Math.abs(AC.insCaret(S) - 2/3) < 0.02, AC.insCaret(S).toFixed(3));
+  ok('caret becomes a diamond at the second marker', AC.insWeaponsReady(S));
+  at(7.0); ok('full fine at 7.0 min', S.ins.complete && AC.insCaret(S) > 0.99);
+}
+{
+  // STBY / READY follow the Heatblur table
+  const h = harness(AC.procedures[1]);
+  const { S, run } = h;
+  S.rioSeat = true; run(150);
+  h.to('liquidCool','awg9'); h.to('wcsMode','stby'); run(35);
+  h.to('navMode','gnd'); run(10);
+  ok('STBY and READY both lit for the first 45 s', S.rio.stbyLight && S.rio.readyLight);
+  run(50);
+  ok('STBY alone once aligning', S.rio.stbyLight && !S.rio.readyLight);
+  S.rate = 8; run(45); S.rate = 1;
+  ok('READY alone past the weapons marker', !S.rio.stbyLight && S.rio.readyLight);
+  h.sim.set('parkBrake','off'); run(2);
+  ok('brake released makes READY flash', !S.rio.stbyLight);
+}
+
+/* ------------------------------------------------------- knob detents */
+head('Knob detents');
+{
+  const knobs = AC.controls.filter(c => c.kind === 'knob');
+  const withAngles = knobs.filter(c => c.angles);
+  ok('every declared angle list matches its state count',
+     withAngles.every(c => c.angles.length === c.states.length),
+     withAngles.map(c => c.id + ' ' + c.angles.length + '/' + c.states.length).join('  ') || 'none');
+  ok('declared angles run clockwise',
+     withAngles.every(c => c.angles.every((a, i) => i === 0 || a > c.angles[i - 1])));
+  ok('declared angles stay on the dial face',
+     withAngles.every(c => c.angles.every(a => a > -180 && a < 180)));
+
+  const decm = AC.controls.find(c => c.id === 'decmMode');
+  ok('DECM reads OFF / STBY / HOLD / ACT / REC / RPT',
+     decm.states.join() === 'off,stby,hold,act,rec,rpt');
+  // stepping it clockwise must walk the printed labels in order
+  const sim = createSim(AC);
+  const seen = [];
+  for (let i = 0; i < 6; i++) { seen.push(sim.S.sw.decmMode); sim.click('decmMode', -1); }
+  ok('right-click steps clockwise through the detents',
+     seen.join() === 'off,stby,hold,act,rec,rpt', seen.join(' '));
+}
+
 /* ------------------------------------------------ Show me framing */
 head('Show me framing');
 {
@@ -292,7 +388,8 @@ head('Geometry and wiring');
     if (!s.tgt) return;
     // a target may be a function of state, for multi-press sequences
     const t = typeof s.tgt === 'function' ? s.tgt(probe) : s.tgt;
-    if (t && !t.startsWith('comms:') && !ids.has(t)) {
+    const menu = t && (t.startsWith('comms:') || t.startsWith('kb:'));
+    if (t && !menu && !ids.has(t)) {
       unresolved++; console.log('           ' + p.meta.id + ' step ' + s.n + ' -> ' + t);
     }
   }));

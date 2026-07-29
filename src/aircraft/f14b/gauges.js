@@ -37,7 +37,7 @@ export const gauges = [
   { id:'dgOil', view:'front', kind:'chip', x:339, y:828, w:130, h:20, name:'OIL PRESSURE',
     read: s => 'OIL ' + Math.round(s.eng.L.oil) + '/' + Math.round(s.eng.R.oil) + ' PSI' },
   { id:'dgHyd', view:'front', kind:'chip', x:339, y:910, w:130, h:20, name:'HYD PRESSURE',
-    read: s => 'CMB' + Math.round(s.hydComb) + ' FLT' + Math.round(s.hydFlt) },
+    read: s => 'CMB' + Math.round(s.hydComb) + ' FLT' + Math.round(s.hydFlt) },   // COMP left, FLT right, as on the dial
   { id:'dgRadalt', view:'front', kind:'chip', x:280, y:498, w:112, h:20, name:'RADAR ALTIMETER',
     read: s => 'RALT ' + Math.round(s.radalt.value) + ' FT' },
   { id:'dgFuel', view:'front', kind:'chip', x:1306, y:812, w:100, h:20, name:'FUEL',

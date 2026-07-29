@@ -272,8 +272,8 @@ body.edit #editbar{display:flex}
 .insrow{position:absolute;left:12%;right:12%;top:20%;display:flex;justify-content:space-between;
   font-size:11px;letter-spacing:.04em;white-space:nowrap}
 .instrack{position:absolute;left:7%;right:7%;top:44%;height:1px;background:rgba(65,224,124,.55)}
-.instrack:before{content:"";position:absolute;left:0;right:0;top:-3px;height:7px;
-  background:repeating-linear-gradient(90deg,rgba(65,224,124,.85) 0 1px,transparent 1px 14.28%)}
+.instrack u{position:absolute;top:-5px;width:2px;height:11px;background:var(--phos);
+  transform:translateX(-50%)}
 
 /* ---------- the pilot's kneeboard (RSHIFT+K) ---------- */
 #kneecard{position:absolute;right:16px;top:16px;z-index:38;width:330px;display:none;
@@ -304,3 +304,6 @@ body.edit #editbar{display:flex}
   border-radius:2px;padding:3px 8px}
 .kbkeys button:last-child{margin-left:auto}
 @media (max-width:900px){#kneecard{right:8px;left:8px;width:auto}}
+
+.hs.sel{border-color:var(--phos);background:rgba(65,224,124,.28);
+  box-shadow:0 0 12px rgba(65,224,124,.45)}
