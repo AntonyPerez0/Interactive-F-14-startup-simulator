@@ -209,10 +209,11 @@ drifts from what is on disk.
 GitHub Pages serves files and runs no code, so it cannot count visitors by
 itself. That needs a small endpoint somewhere else.
 
-The client side is written and switched off. Deploy `tools/presence-worker.js`
-to Cloudflare Workers — it is about forty lines and free — then paste its URL
-into `PRESENCE_URL` in `src/core/config.js`. A chip appears in the top bar
-reading "7 here".
+On Cloudflare Pages the endpoint ships with the site: `functions/api/presence.js`
+needs only a free D1 binding named `PRESENCE`, and `PRESENCE_URL` already points
+at it. On GitHub Pages, deploy `tools/presence-worker.js` as a standalone Worker
+and put its URL in `PRESENCE_URL` instead. Either way a chip appears in the top
+bar reading "7 here". See **DEPLOY.md**.
 
 The contract is deliberately trivial, so any host will do:
 

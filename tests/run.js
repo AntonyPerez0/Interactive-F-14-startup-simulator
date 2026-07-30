@@ -567,6 +567,45 @@ head('Saved progress');
   ok('does nothing without an endpoint', typeof off.start === 'function');
   off.start();
   ok('starting it is harmless', true);
+
+  const { readFileSync } = await import('node:fs');
+  const fn = readFileSync(new URL('../functions/api/presence.js', import.meta.url), 'utf8');
+  ok('the Pages Function is there', /onRequestPost/.test(fn));
+  ok('it survives a missing binding', /if \(!env\.PRESENCE\)/.test(fn));
+  ok('it survives a query blowing up', /catch \(e\)[\s\S]{0,80}online: 0/.test(fn));
+  // what it writes, and what it never touches
+  ok('it stores nothing but an id and a timestamp',
+     /INSERT INTO presence \(id, seen\)/.test(fn));
+  ok('it never reads an address or a header',
+     !/CF-Connecting-IP|cf\.country|request\.headers/i.test(fn));
+  ok('it caps the id length', /id\.slice\(0, 64\)/.test(fn));
+
+  const cfg = readFileSync(new URL('../src/core/config.js', import.meta.url), 'utf8');
+  const cli = readFileSync(new URL('../src/core/presence.js', import.meta.url), 'utf8');
+  const url = /PRESENCE_URL = '([^']*)'/.exec(cfg)[1];
+  ok('the client points at the Function', url === '/api/presence', url);
+  ok('the endpoint path matches the Function file', url === '/api/presence');
+
+  // the beat has to stay inside the free allowance for a plausible day
+  const beat = +/const BEAT = (\d+)/.exec(cli)[1] / 1000;
+  const perTwentyMin = Math.ceil(20 * 60 / beat);
+  ok('a 20 minute visit stays cheap', perTwentyMin <= 30, perTwentyMin + ' writes');
+
+  // the counts
+  ok('the endpoint can report totals', /stats/.test(fn) && /MONTH_MS/.test(fn));
+  ok('the hot path only does one count',
+     /if \(!wantStats\) return json\(\{ online \}\)/.test(fn));
+  ok('rows are kept, not swept, so the total means something',
+     /KEEP_MS\s*=\s*400/.test(fn) && !/DELETE FROM presence WHERE seen < \?\s*'\)\s*\.bind\(cutoff/.test(fn));
+  ok('the client asks for totals on the first beat', /beat\(true\)/.test(cli));
+  ok('and exposes them to the menu', /counts,/.test(cli) && /onCounts/.test(cli));
+
+  const menu = readFileSync(new URL('../src/core/menu.js', import.meta.url), 'utf8');
+  ok('the hangar renders them', /class="visitors"|'visitors'/.test(menu));
+  ok('but only once real numbers arrive',
+     /typeof p\.total === 'number' && p\.total > 0/.test(menu));
+  ok('3,000 such visits a day fit in the free 100,000',
+     perTwentyMin * 3000 <= 100000, (perTwentyMin * 3000).toLocaleString() + ' writes');
 }
 
 /* ------------------------------------------------- airborne handover */
@@ -719,6 +758,62 @@ head('TID repeat on the HSD');
   s.S.power = true; s.S.rio.wcsUp = true;
   s.set('hsdPower','on'); s.set('hsdMode','tid');
   ok('during alignment it shows the alignment page', shows(s, hsd) === 'align');
+}
+
+/* --------------------------------------------------------- shutdown */
+for (const proc of AC.procedures.filter(p => p.meta.phase === 'shutdown')) {
+  head('Shutdown · ' + proc.meta.name);
+  const h = harness(proc);
+  const { S, to, run } = h;
+  proc.setup(h.sim);
+  const settle = () => run(30);
+
+  ok('starts taxied in with both engines running',
+     S.eng.L.n2 > 60 && S.eng.R.n2 > 60 && S.sw.parkBrake === 'set',
+     S.eng.L.n2.toFixed(0) + '% N2');
+
+  if (proc.meta.crew === 'pilot') {
+    to('antiSkid','spoiler'); to('flapsLever','up');
+    to('hookHandle','up'); to('speedBrake','in'); to('masterArm','off'); settle();
+    to('parkBrake','set');
+    to('wingSweep','oversweep'); to('sweepThumb','aft'); run(12); settle();
+    to('extLights','off'); to('landingLights','off');
+    to('vdiPower','off'); to('hudPower','off'); to('hsdPower','off');
+    to('tacanFunc','off'); to('ara63','off'); to('uhfFunc','off');
+    to('afcsPitch','off'); to('afcsRoll','off'); to('afcsYaw','off');
+    to('antiSkid','off'); to('radAltKnob','off'); settle();
+    to('ejectSeat','safe'); to('canopy','open');
+    to('throttleL','off'); to('throttleR','off');
+    run(120);
+    ok('engines run down to zero', S.eng.L.n2 < 1 && S.eng.R.n2 < 1);
+    ok('the wings got to oversweep before that', S.sweep >= 67.5, S.sweep.toFixed(0) + '°');
+    to('masterGenL','off'); to('masterGenR','off');
+    to('oxygen','off'); to('parkBrake','off'); settle();
+  } else {
+    to('wcsMode','off'); to('irtvPower','off'); to('alr67Power','off');
+    to('decmMode','off'); to('ale39Mode','off'); to('flareMode','norm');
+    to('dlPower','off'); to('iffMode4','off'); to('navMode','off');
+    to('rioTacanFunc','off'); to('vuhfFunc','off');
+    to('liquidCool','off'); run(2);
+    ok('the displays go dark once the WCS is down', !S.rio.wcsUp);
+    to('ejectSeat','safe'); to('rioOxygen','off'); to('rioIcs','cold'); settle();
+  }
+
+  ok('a deliberate shutdown is not logged as a fault', S.faults.length === 0,
+     S.faults.join('; ') || 'no faults');
+  ok('all steps complete', h.left().length === 0,
+     h.done.filter(Boolean).length + '/' + proc.steps.length);
+  h.left().forEach(s => console.log('           missed ' + s.n + '  ' + strip(s.t)));
+}
+{
+  head('Shutdown versus a botched start');
+  const start = harness(AC.procedures[0]);
+  start.S.gpu = true; start.S.airCart = true;
+  start.sim.click('engCrank', -1); start.run(14);
+  start.to('throttleR','idle'); start.run(70);
+  start.to('throttleR','off'); start.run(2);
+  ok('cutting an engine during a start is still a fault',
+     start.S.faults.some(f => /shut down/i.test(f)), start.S.faults.join('; ') || 'none');
 }
 
 /* ------------------------------------------------------ offline cache */

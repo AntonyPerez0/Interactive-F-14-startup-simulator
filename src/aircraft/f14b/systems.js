@@ -291,6 +291,28 @@ export function bvrNoAttack(sim) {
                                 : ' back in the priority list.'), 'radio');
 }
 
+/* Taxied in with both engines running, everything still on from the flight.
+   Where a shutdown starts. */
+export function shutdownSetup(sim) {
+  setAirborne(sim, { sw:{
+    throttleL:'idle', throttleR:'idle',
+    parkBrake:'set', gearHandle:'down', flapsLever:'down',
+    wingSweep:'detent', antiSkid:'both', speedBrake:'in',
+    landingLights:'on', extLights:'brt', masterMode:'ldg',
+    irtvPower:'on', alr67Power:'on', decmMode:'stby', ale39Mode:'man',
+    dlPower:'on', dlModeSw:'tac', iffMode4:'on', ara63:'on',
+    wcsMode:'xmt', hookHandle:'up',
+  }});
+  const S = sim.S;
+  S.shuttingDown = true;
+  S.eng.L.n2 = S.eng.R.n2 = 69;
+  S.eng.L.egt = S.eng.R.egt = 500;
+  S.eng.L.ff  = S.eng.R.ff  = 1130;
+  S.eng.L.noz = S.eng.R.noz = 100;
+  S.fuel = 2400;
+  return S;
+}
+
 export function insPct(S) {
   if (!S.ins.mode) return 0;
   return Math.min(1, S.ins.t / INS_TIME[S.ins.mode]);
@@ -355,7 +377,11 @@ export function onChange(sim, id, to) {
           else if(e.n2 > 2){ e.hung=true; sim.fault('Throttle opened below 20% N2'); sim.emit(side+' throttle opened below 20% N2 — hot / hung start risk.','bad'); }
           else { sim.fault('Throttle opened before cranking'); sim.emit('No N2. Crank the engine before opening the throttle.','bad'); }
         }
-        if(to==='off' && e.lit){ e.lit=false; e.hung=false; sim.fault('Engine shut down mid-procedure'); sim.emit(side+' engine shut down.','bad'); }
+        if(to==='off' && e.lit){
+          e.lit=false; e.hung=false;
+          if(!S.shuttingDown) sim.fault('Engine shut down mid-procedure');
+          sim.emit(side+' engine shut down.', S.shuttingDown ? 'good' : 'bad');
+        }
         break;
       }
       case 'radAltKnob':

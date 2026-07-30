@@ -12,7 +12,10 @@
    ============================================================ */
 import { $, el } from './dom.js';
 
-const BEAT = 20000;      // heartbeat interval
+/* A beat every 45 s against a 150 s window: someone who closes the tab drops off
+   within about two minutes, and a twenty minute visit costs roughly 27 writes.
+   Cloudflare's free D1 allowance is 100,000 writes a day. */
+const BEAT = 45000;
 const KEY = 'dcs-trainer-visitor';
 
 function visitorId() {
@@ -29,7 +32,8 @@ export function createPresence(url) {
   if (!url) return { start() {}, stop() {} };
 
   const id = visitorId();
-  let chip = null, timer = null, failures = 0;
+  const counts = { online: null, month: null, total: null };
+  let chip = null, timer = null, failures = 0, onCounts = null;
 
   const show = n => {
     if (!chip) {
@@ -42,17 +46,19 @@ export function createPresence(url) {
     chip.style.display = '';
   };
 
-  const beat = async () => {
+  const beat = async (wantStats = false) => {
     try {
       const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, stats: wantStats }),
         keepalive: true,
       });
       if (!r.ok) throw new Error(r.status);
-      const { online } = await r.json();
-      if (typeof online === 'number') { show(online); failures = 0; }
+      const data = await r.json();
+      if (typeof data.online === 'number') { show(data.online); failures = 0; }
+      Object.assign(counts, data);
+      if (typeof data.total === 'number' && onCounts) onCounts(counts);
     } catch (e) {
       // give up quietly rather than hammer an endpoint that is not there
       if (++failures >= 3) { stop(); if (chip) chip.style.display = 'none'; }
@@ -62,8 +68,13 @@ export function createPresence(url) {
   const stop = () => { if (timer) clearInterval(timer); timer = null; };
 
   return {
+    counts,
+    /* called once when the numbers land, so the hangar can show them */
+    onCounts(fn) { onCounts = fn; },
+    /* asks for the totals as well as the live count */
+    refresh() { return beat(true); },
     start() {
-      beat();
+      beat(true);
       timer = setInterval(beat, BEAT);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') beat();

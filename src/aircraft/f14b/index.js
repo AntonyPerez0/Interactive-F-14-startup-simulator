@@ -19,6 +19,8 @@ import * as aaSidewinder from './procedures/aa-sidewinder.js';
 import * as aaSparrow    from './procedures/aa-sparrow.js';
 import * as aaPhoenixStt from './procedures/aa-phoenix-stt.js';
 import * as aaPhoenixTws from './procedures/aa-phoenix-tws.js';
+import * as shutPilot    from './procedures/shutdown-pilot.js';
+import * as shutRio      from './procedures/shutdown-rio.js';
 
 export default {
   id: 'f14b',
@@ -56,7 +58,8 @@ export default {
 
   /* numbered here so no procedure file can forget, and an explicit n still wins */
   procedures: [pilotStart, rioShore, rioCarrier, landShore, landCarrier,
-               aaGun, aaSidewinder, aaSparrow, aaPhoenixStt, aaPhoenixTws]
+               aaGun, aaSidewinder, aaSparrow, aaPhoenixStt, aaPhoenixTws,
+               shutPilot, shutRio]
     .map(p => ({ ...p, steps: p.steps.map((s, i) => ({ n: i + 1, ...s })) })),
 
   /* ground crew and Jester menus */

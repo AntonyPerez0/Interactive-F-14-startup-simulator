@@ -17,7 +17,7 @@ const PHASES = [
   { id:'shutdown', label:'Shutdown',  blurb:'Securing the aircraft' },
 ];
 
-export function createMenu(catalogue, onPick, stats) {
+export function createMenu(catalogue, onPick, stats, presence) {
   const M = {
     screen: 'hangar',
     entry: catalogue.find(c => c.module) || catalogue[0],
@@ -73,6 +73,19 @@ export function createMenu(catalogue, onPick, stats) {
         const warn = el('div', 'yourstats');
         warn.innerHTML = '<span>This browser is blocking local storage, so times will not be kept.</span>';
         this.inner.appendChild(warn);
+      }
+
+      /* Visitor numbers, if the counter is switched on. Absent until the first
+         reply lands, and simply never shown if there is nothing behind it. */
+      const p = presence && presence.counts;
+      if (p && typeof p.total === 'number' && p.total > 0) {
+        const bar = el('div', 'visitors');
+        const cell = (n, label) => `<span><b>${n.toLocaleString()}</b>${label}</span>`;
+        bar.innerHTML =
+          cell(p.total, 'visitors') +
+          (typeof p.month === 'number' ? cell(p.month, 'this month') : '') +
+          (typeof p.online === 'number' && p.online > 0 ? cell(p.online, 'here now') : '');
+        this.inner.appendChild(bar);
       }
 
       const cats = [...new Set(catalogue.map(c => c.cat))];

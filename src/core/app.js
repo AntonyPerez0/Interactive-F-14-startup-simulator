@@ -66,7 +66,8 @@ const cautionLamps = ac.cautions.map(([id, label]) => {
 });
 
 /* ---------------- procedures, chosen from the home screen ---------------- */
-const menu = createMenu(catalogue, (_ac, procedure) => startProcedure(procedure), ST);
+const P = createPresence(PRESENCE_URL);
+const menu = createMenu(catalogue, (_ac, procedure) => startProcedure(procedure), ST, P);
 
 let current = null;
 
@@ -383,7 +384,8 @@ function frame(now) {
     : (cur ? cur.t.replace(/<[^>]+>/g, '') : '—');
   cautionLamps.forEach(c => { c.node.classList.toggle('on', !!S.caution[c.id]); });
   requestAnimationFrame(frame);
-createPresence(PRESENCE_URL).start();
+P.onCounts(() => { if ($('#menu').classList.contains('open')) menu.render(); });
+P.start();
 
 /* Offline support, so it keeps working with no signal and can be installed to a
    home screen. Only over https or localhost — a file:// open has no worker. */
