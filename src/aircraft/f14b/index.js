@@ -14,6 +14,11 @@ import * as rioShore    from './procedures/rio-align-shore.js';
 import * as rioCarrier  from './procedures/rio-align-carrier.js';
 import * as landShore   from './procedures/landing-shore.js';
 import * as landCarrier from './procedures/landing-carrier.js';
+import * as aaGun        from './procedures/aa-gun.js';
+import * as aaSidewinder from './procedures/aa-sidewinder.js';
+import * as aaSparrow    from './procedures/aa-sparrow.js';
+import * as aaPhoenixStt from './procedures/aa-phoenix-stt.js';
+import * as aaPhoenixTws from './procedures/aa-phoenix-tws.js';
 
 export default {
   id: 'f14b',
@@ -43,13 +48,15 @@ export default {
 
   /* aircraft-specific extras the UI can call */
   radio:     systems.radio,
+  hook:      systems.bvrHook,
   insPct:    systems.insPct,
   insCaret:  systems.insCaret,
   insWeaponsReady: systems.insWeaponsReady,
   autopilot: systems.AUTOPILOT,
 
   /* numbered here so no procedure file can forget, and an explicit n still wins */
-  procedures: [pilotStart, rioShore, rioCarrier, landShore, landCarrier]
+  procedures: [pilotStart, rioShore, rioCarrier, landShore, landCarrier,
+               aaGun, aaSidewinder, aaSparrow, aaPhoenixStt, aaPhoenixTws]
     .map(p => ({ ...p, steps: p.steps.map((s, i) => ({ n: i + 1, ...s })) })),
 
   /* ground crew and Jester menus */
@@ -79,6 +86,7 @@ export default {
         { k:'C+3', t:'STARTUP — run the RIO checklist', act:'jStartup' },
         { k:'C+4', t:'LOUD AND CLEAR — comm check reply', act:'jLoud' },
         { k:'C+7', t:'INS alignment…', go:'ins' },
+        { k:'C+2', t:'Radar and weapons…', go:'radar' },
         { k:'C+7', t:'DATA LINK RADIO…', go:'dl' },
       ],
       ins: [
@@ -86,6 +94,13 @@ export default {
         { k:'C+5', t:'INS GO COARSE', act:'insCoarse' },
         { k:'C+6', t:'INS GO MIN WPN LAUNCH', act:'insMin' },
         { k:'C+7', t:'INS GO FINE  (8 min, most precise)', act:'insFine' },
+        { k:'C+12', t:'Back', go:'root', back:true },
+      ],
+      radar: [
+        { k:'C+1', t:'LOCK HIM UP — single target track', act:'jLock' },
+        { k:'C+2', t:'GO TWS AUTO — track while scan', act:'jTws' },
+        { k:'C+3', t:'BACK TO SEARCH — RWS', act:'jRws' },
+        { k:'C+4', t:'LIQUID COOLING — ON', act:'jCool' },
         { k:'C+12', t:'Back', go:'root', back:true },
       ],
       dl: [

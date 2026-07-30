@@ -44,6 +44,9 @@ export function createSim(aircraft) {
 
       if (aircraft.beforeChange && aircraft.beforeChange(this, c, dir, frac) === false) return;
 
+      // a mode button: momentary, and what it does is select a state elsewhere
+      if (c.sets) { this.set(c.sets.id, c.sets.value); return; }
+
       if (c.reverse) dir = -dir;
       const cur = c.states.indexOf(S.sw[id]);
       let next;

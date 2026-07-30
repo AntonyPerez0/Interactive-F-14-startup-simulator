@@ -13,6 +13,7 @@ import { mmss } from './stats.js';
 const PHASES = [
   { id:'startup',  label:'Start-up',  blurb:'Cold and dark to ready to taxi' },
   { id:'landing',  label:'Landing',   blurb:'Configure, break, pattern and groove' },
+  { id:'combat',   label:'Air to air', blurb:'Guns, Sidewinder, Sparrow and Phoenix' },
   { id:'shutdown', label:'Shutdown',  blurb:'Securing the aircraft' },
 ];
 

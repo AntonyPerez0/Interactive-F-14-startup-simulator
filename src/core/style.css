@@ -502,3 +502,21 @@ body.edit #editbar{display:flex}
   box-shadow:0 0 5px rgba(0,0,0,.85)}
 .gauge.needle b{position:absolute;left:50%;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;
   border-radius:50%;background:#d7dbd3;box-shadow:0 0 4px rgba(0,0,0,.8)}
+
+/* ---------- tracks drawn on the TID ---------- */
+.tidtracks{position:absolute;inset:0;display:none;font-family:var(--data);color:var(--phos)}
+.trk{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;cursor:pointer}
+.trk u{position:absolute;left:50%;top:50%;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;
+  border:1.6px solid var(--phos);border-bottom-color:transparent;border-radius:50%}
+.trk.hostile u{border-radius:0;border-bottom-color:transparent;transform:rotate(45deg)}
+.trk.friendly u{border-radius:50%;border-color:#6fd0ff}
+.trk.noatk u{border-style:dashed;opacity:.5}
+.trk.hooked u{box-shadow:0 0 0 3px rgba(65,224,124,.35)}
+.trk.hooked:after{content:"";position:absolute;left:50%;top:50%;width:28px;height:28px;
+  margin:-14px 0 0 -14px;border:1px solid var(--phos);border-radius:2px}
+.trk b{position:absolute;left:16px;top:-3px;font-size:10px;font-weight:400}
+.trk i{position:absolute;right:16px;top:-3px;font-size:9px;opacity:.75;font-style:normal}
+.trk s{position:absolute;left:50%;top:16px;transform:translateX(-50%);font-size:9px;
+  text-decoration:none;white-space:nowrap}
+.trk s.pitbull{animation:ttiflash .5s steps(1) infinite}
+@keyframes ttiflash{50%{opacity:0}}

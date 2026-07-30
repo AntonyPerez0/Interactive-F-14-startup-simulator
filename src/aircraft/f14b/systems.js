@@ -131,6 +131,166 @@ export function nextOf(S, pairs) {
   return pairs[pairs.length - 1][0];
 }
 
+/* ---------------- BVR: radar picture and Phoenix employment ----------------
+   Not a radar simulation — a scripted picture that behaves the way the tutorial
+   describes, so the switch flow and the decision order can be practised.
+
+   Four contacts closing head-on. They only form tracks in a search or TWS mode
+   with enough scan to cover them, and a track that is not being held drops. */
+
+const PITBULL = { small: 6, norm: 10, large: 13 };      // nm the missile goes active
+
+export function bvrSetup(sim) {
+  setAirborne(sim, { sw:{ masterArm:'off', wcsMode:'xmt', mslPrep:'off', swCool:'off' } });
+  const S = sim.S;
+  S.bvr = {
+    armed:false, prepT:0, prepped:false, coolT:0, cooled:false, weapon:'none',
+    contacts: [
+      { id:1, name:'Bandit 1', rng:58, az:-14, alt:31, iff:'unknown', tracked:false, prio:null, noAttack:false },
+      { id:2, name:'Bandit 2', rng:61, az: -6, alt:33, iff:'unknown', tracked:false, prio:null, noAttack:false },
+      { id:3, name:'Bandit 3', rng:64, az:  5, alt:33, iff:'unknown', tracked:false, prio:null, noAttack:false },
+      { id:4, name:'Trailer',  rng:72, az: 17, alt:28, iff:'unknown', tracked:false, prio:null, noAttack:false },
+    ],
+    hooked:null, shots:[], fired:0, sttLock:null, closure:420,
+  };
+  return S;
+}
+
+export function bvrTick(sim, dt) {
+  const S = sim.S, B = S.bvr;
+  if (!B) return;
+
+  B.armed = S.sw.masterArm !== 'off';
+  B.weapon = S.sw.weaponSel;
+
+  /* MSL PREP warms the radar missiles. The guide gives roughly two minutes;
+     you can tell it is done because the missile shows white on the display. */
+  if (S.sw.mslPrep === 'on' && !B.prepped) {
+    B.prepT += dt;
+    if (B.prepT >= 120) { B.prepped = true; sim.emit('Missile prep complete — the missiles show white.','good'); }
+  } else if (S.sw.mslPrep !== 'on') { B.prepT = 0; B.prepped = false; }
+
+  /* SW COOL chills the Sidewinder seeker. It runs for a limited time, so it is
+     switched on when you expect to need it, not at start-up. */
+  if (S.sw.swCool === 'on' && !B.cooled) {
+    B.coolT += dt;
+    if (B.coolT >= 8) { B.cooled = true; sim.emit('Sidewinder seekers cooled.','good'); }
+  } else if (S.sw.swCool !== 'on') { B.coolT = 0; B.cooled = false; }
+
+  const mode = S.sw.radarMode;
+  const searching = ['pdsrch','rws','twsman','twsauto'].includes(mode);
+  const tws = mode === 'twsman' || mode === 'twsauto';
+  const az = +S.sw.azScan, bars = +S.sw.elBars;
+  // a narrow, shallow scan will not hold a spread formation
+  const coverage = (az >= 20 ? 1 : 0) + (bars >= 4 ? 1 : 0) + (mode === 'twsauto' ? 1 : 0);
+
+  B.contacts.forEach(c => {
+    c.rng = Math.max(4, c.rng - (B.closure / 3600) * dt);
+    if (!S.rio.wcsUp || !searching) { c.tracked = false; return; }
+    const inScan = c.rng < 70 && Math.abs(c.az) <= az;
+    c.tracked = inScan && (coverage >= 1 || mode === 'twsauto');
+    if (!c.tracked) { if (B.hooked === c.id) B.hooked = null; }
+  });
+
+  /* A single target track holds one contact and drops the rest of the picture.
+     Locks whatever is hooked, or the nearest one if you just slewed and locked. */
+  if (mode === 'pdstt' || mode === 'pulsestt') {
+    if (!B.sttLock) {
+      const pick = B.hooked
+        ? B.contacts.find(c => c.id === B.hooked)
+        : B.contacts.filter(c => c.rng < 70).sort((a, b2) => a.rng - b2.rng)[0];
+      if (pick) { B.sttLock = pick.id; sim.emit('Single target track on ' + pick.name + '.','radio'); }
+    }
+    B.contacts.forEach(c => { c.tracked = c.id === B.sttLock; });
+  } else B.sttLock = null;
+
+  // priorities: hostile or unknown, nearest first, skipping anything told not to attack
+  /* Anything already being shot at drops out, so pressing launch again steps to
+     the next priority — that is what makes the six shooter work. */
+  const engaged = new Set(B.shots.map(s => s.target).concat(B.spent || []));
+  const eligible = B.contacts
+    .filter(c => c.tracked && !c.noAttack && c.iff !== 'friendly' && !engaged.has(c.id))
+    .sort((a, b2) => a.rng - b2.rng);
+  B.contacts.forEach(c => { c.prio = null; });
+  eligible.forEach((c, i) => { c.prio = i + 1; });
+  if (B.bump && eligible.length > 1) {
+    const h = eligible.find(c => c.id === B.bump);
+    if (h) { eligible.forEach(c => { c.prio = null; });
+             [h, ...eligible.filter(c => c !== h)].forEach((c, i) => { c.prio = i + 1; }); }
+  }
+
+  // missiles in flight
+  B.shots.forEach(s => {
+    const c = B.contacts.find(x => x.id === s.target);
+    s.tti = Math.max(0, s.tti - dt);
+    s.rng = c ? c.rng : s.rng;
+    s.active = s.rng <= PITBULL[S.sw.tgtSize];
+  });
+  B.shots = B.shots.filter(s => s.tti > 0);
+}
+
+/* fired from the launch button */
+export function bvrLaunch(sim, viaTrigger = false) {
+  const S = sim.S, B = S.bvr;
+  if (!B) return;
+  if (!B.armed) return sim.emit('Master arm is off.','bad');
+
+  const w = B.weapon;
+  if (w === 'gun') {
+    if (S.sw.masterMode !== 'aa') return sim.emit('HUD is not in A/A mode.','bad');
+    B.gunFired = true; B.fired++;
+    return sim.emit('Guns, guns, guns.','good');
+  }
+  if (w === 'sw') {
+    if (!B.cooled) return sim.emit('Sidewinder seeker is not cooled yet.','bad');
+    B.swFired = true; B.fired++;
+    return sim.emit('Fox 2.','good');
+  }
+  if (!B.prepped) return sim.emit('Missiles are still in prep — wait for them to show white.','bad');
+  if (w === 'sp') {
+    if (!B.sttLock) return sim.emit('Sparrow needs a single target track.','bad');
+    B.spFired = true; B.fired++;
+    return sim.emit('Fox 1.','good');
+  }
+  if (w !== 'ph') return sim.emit('Phoenix is not the selected weapon.','bad');
+  const tgt = B.sttLock
+    ? B.contacts.find(c => c.id === B.sttLock)
+    : B.contacts.find(c => c.prio === 1);
+  if (!tgt)            return sim.emit('No target — nothing has priority one.','bad');
+  if (B.shots.some(s => s.target === tgt.id)) return sim.emit('Already a missile on that one.','radio');
+  const max = B.sttLock ? 60 : 50;
+  if (tgt.rng > max)   return sim.emit('Outside maximum range — ' + max + ' nm in this mode.','bad');
+  B.shots.push({ target: tgt.id, tti: Math.round(tgt.rng * 4.5), rng: tgt.rng, active: false });
+  (B.spent ||= []).push(tgt.id);
+  B.fired++;
+  sim.emit('Fox 3 on ' + tgt.name + ' at ' + tgt.rng.toFixed(0) + ' nm.','good');
+}
+
+/* the RIO's actions on a hooked track */
+export function bvrHook(sim, id) {
+  const B = sim.S.bvr; if (!B) return;
+  const c = B.contacts.find(x => x.id === id);
+  if (!c || !c.tracked) return;
+  B.hooked = B.hooked === id ? null : id;
+}
+
+export function bvrDesignate(sim, iff) {
+  const B = sim.S.bvr; if (!B) return;
+  const c = B.contacts.find(x => x.id === B.hooked);
+  if (!c) return sim.emit('Hook a track first.','bad');
+  c.iff = iff;
+  sim.emit(c.name + ' designated ' + iff + '.','radio');
+}
+
+export function bvrNoAttack(sim) {
+  const B = sim.S.bvr; if (!B) return;
+  const c = B.contacts.find(x => x.id === B.hooked);
+  if (!c) return sim.emit('Hook a track first.','bad');
+  c.noAttack = !c.noAttack;
+  sim.emit(c.name + (c.noAttack ? ' set DO NOT ATTACK — out of the priority list.'
+                                : ' back in the priority list.'), 'radio');
+}
+
 export function insPct(S) {
   if (!S.ins.mode) return 0;
   return Math.min(1, S.ins.t / INS_TIME[S.ins.mode]);
@@ -210,6 +370,24 @@ export function onChange(sim, id, to) {
         if(to==='in'){ S.sw[id]='out'; cap(sim, id); }
         break;
 
+      case 'launchBtn':
+        if(to==='in'){ S.sw.launchBtn='out'; bvrLaunch(sim); }
+        break;
+      case 'designate':
+        bvrDesignate(sim, to);
+        break;
+      case 'noAttack':
+        if(to==='set'){ S.sw.noAttack='clear'; bvrNoAttack(sim); }
+        break;
+      case 'trigger':
+        if(to==='fire'){ S.sw.trigger='off'; bvrLaunch(sim, true); }
+        break;
+      case 'nextLaunch':
+        if(to==='in'){
+          S.sw.nextLaunch='out';
+          if(S.bvr && S.bvr.hooked){ S.bvr.bump = S.bvr.hooked; sim.emit('Priority moved to the hooked track.','radio'); }
+        }
+        break;
       case 'masterReset':
         if(to==='in'){
           S.sw.masterReset='out'; S.cadcReset=true;
@@ -293,6 +471,22 @@ export function radio(sim, act) {
         S.ins.mode=m; S.ins.t=0; S.ins.complete=false;
         sim.emit('Jester: alignment set to '+m.toUpperCase()+'.','radio'); break;
       }
+      case 'jLock':
+        sim.set('radarMode','pdstt');
+        sim.emit('Jester: locked, single target track.','radio');
+        break;
+      case 'jTws':
+        sim.set('radarMode','twsauto');
+        sim.emit('Jester: TWS auto, tracking.','radio');
+        break;
+      case 'jRws':
+        sim.set('radarMode','rws');
+        sim.emit('Jester: back to search.','radio');
+        break;
+      case 'jCool':
+        sim.set('liquidCool','awg9');
+        sim.emit('Jester: liquid cooling is on.','radio');
+        break;
       case 'dlMode': S.dl.mode=true; sim.emit('Datalink mode — Tactical Datalink System.','radio'); break;
       case 'dlHost': S.dl.host=true; sim.emit('Datalink host — CVN-74 Stennis.','radio'); break;
     }
@@ -429,6 +623,8 @@ export function tick(sim, dt, dtReal = dt) {
         sim.emit('INS alignment hung — the jet must not move. Set the parking brake.','bad');
       }
     }
+
+    if (S.bvr) bvrTick(sim, dt);
 
     // the scripted front-seater
     if(S.rioSeat){

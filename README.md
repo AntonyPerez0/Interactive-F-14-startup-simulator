@@ -82,8 +82,8 @@ export const steps = [
 ```
 
 Then add it to the `procedures` array in `src/aircraft/f14b/index.js`. It appears
-on the home screen automatically, filed under its `phase` — `startup`, `landing`
-or `shutdown`. A phase with nothing in it shows as "Not built yet".
+on the home screen automatically, filed under its `phase` — `startup`, `combat`,
+`landing` or `shutdown`. A phase with nothing in it shows as "Not built yet".
 
 `meta` needs `id`, `crew`, `phase`, `name` and `view` (the tab to open on).
 
@@ -111,6 +111,17 @@ A rotary may declare `angles`, one entry per state, giving the angle of each
 printed detent in degrees with 0 pointing up and clockwise positive. Without it
 the pointer sweeps a generic arc, which moves but will not line up with the
 labels. Measure them off the photo rather than guessing.
+
+A momentary button may declare `sets`, selecting a state on another control —
+that is how the seven WCS MODE buttons drive one `radarMode`:
+
+```js
+{ id:'rm_twsauto', kind:'push', sets:{ id:'radarMode', value:'twsauto' },
+  watch: s => s.sw.radarMode === 'twsauto' }
+```
+
+`watch` may be a predicate as well as a caution-flag name; a control lights when
+it returns true.
 
 A control may also declare `ctx`, naming a readout that should stay on screen
 when **Show me** frames it — the CAP keys do this so the TID line showing what
@@ -178,6 +189,21 @@ otherwise skipping everything would win.
 If the browser blocks storage, the trainer says so and keeps working; it just
 forgets on reload.
 
+## Working offline
+
+There is a web app manifest and a service worker, so the site keeps working with
+no connection and can be added to a phone's home screen from Chrome or Safari —
+useful given the point is practising away from your PC. It stays an ordinary
+website; nothing is packaged or published anywhere.
+
+Code is fetched **network-first**, so a deploy is always picked up and nobody can
+get stranded on a stale build. Only the cockpit photos are cache-first, because
+they are large and never change.
+
+Run `python3 tools/build-sw.py` after changing files. The cache version is a hash
+of file contents, so any edit invalidates the old one. A test fails if the list
+drifts from what is on disk.
+
 ## Counting who is online
 
 GitHub Pages serves files and runs no code, so it cannot count visitors by
@@ -219,6 +245,18 @@ jumping straight in.
 
 The catalogue reflects the DCS line-up as I knew it; add or correct entries
 freely — they are plain data.
+
+## The tray
+
+Controls that are not visible in any photo — stick and throttle switches, the
+seat and canopy — live in a small panel top left. It is rebuilt for each
+procedure and only lists what that procedure actually involves, worked out from
+what its steps point at, list as `ctx`, or read in `done()`. A cold start shows
+two entries, a Phoenix engagement four.
+
+If a step needs an off-panel control that none of that catches, name it in
+`ctx`. A test drives every procedure to completion and fails if it had to touch
+a tray control the tray would not have offered.
 
 ## Placing hotspots
 

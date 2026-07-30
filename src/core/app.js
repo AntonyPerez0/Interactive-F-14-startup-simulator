@@ -81,6 +81,7 @@ function startProcedure(procedure) {
   if (procedure.setup) procedure.setup(sim);
   K.resetProgress();
   K.setProcedure(procedure);
+  V.buildTray(K.touches());     // only the off-panel controls this one uses
   K.runStart = sim.S.t;
   ST.started(procedure.meta.id);
   $('#timechip').textContent = '1×';
@@ -133,16 +134,21 @@ const onClick = (e, dir) => {
   }
   sim.click(c.id, dir, frac);
 };
-$('#world').addEventListener('click', e => onClick(e, tapDir));
+$('#world').addEventListener('click', e => {
+  const trk = e.target.closest('[data-trk]');
+  if (trk) { e.preventDefault(); ac.hook(sim, +trk.dataset.trk); return; }
+  onClick(e, tapDir);
+});
 $('#world').addEventListener('contextmenu', e => onClick(e, -1));
 
 V.mount();
 KB.mount();
-V.tray.addEventListener('click', e => {
+/* the tray is rebuilt per procedure, so listen on the stage instead of on it */
+$('#stage').addEventListener('click', e => {
   const b = e.target.closest('button[data-tray]');
   if (b) sim.click(b.dataset.tray, tapDir);
 });
-V.tray.addEventListener('contextmenu', e => {
+$('#stage').addEventListener('contextmenu', e => {
   const b = e.target.closest('button[data-tray]');
   if (b) { e.preventDefault(); sim.click(b.dataset.tray, -1); }
 });
@@ -378,5 +384,11 @@ function frame(now) {
   cautionLamps.forEach(c => { c.node.classList.toggle('on', !!S.caution[c.id]); });
   requestAnimationFrame(frame);
 createPresence(PRESENCE_URL).start();
+
+/* Offline support, so it keeps working with no signal and can be installed to a
+   home screen. Only over https or localhost — a file:// open has no worker. */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 }
 requestAnimationFrame(frame);

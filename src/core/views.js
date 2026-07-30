@@ -37,7 +37,10 @@ export function createViews(sim, ac) {
       this.buildOverlay();
     },
 
-    buildTray() {
+    buildTray(only) {
+      if (this.tray) { this.tray.remove(); this.tray = null; }
+      const wanted = ac.controls.filter(c => c.tray && (!only || only.has(c.id)));
+      if (!wanted.length) return;
       const tray = el('div');
       tray.id = 'tray';
 
@@ -55,7 +58,7 @@ export function createViews(sim, ac) {
         tray.classList.add('shut');
         h.querySelector('b').textContent = '+';
       }
-      ac.controls.filter(c => c.tray).forEach(c => {
+      wanted.forEach(c => {
         const b = el('button', 'trayitem');
         b.dataset.tray = c.id;
         const label = el('span');
@@ -116,7 +119,12 @@ export function createViews(sim, ac) {
           n.style.borderRadius = g.round ? '50%' : '5px';
           n.style.transition = 'opacity .25s';
           n.style.pointerEvents = 'none';
-          if (g.ins) n.appendChild(insPanel());
+          if (g.ins) {
+            n.appendChild(insPanel());
+            const tl = el('div', 'tidtracks');
+            tl.dataset.tracks = '1';
+            n.appendChild(tl);
+          }
         }
         ov.appendChild(n);
         this.gnodes[g.id] = n;
@@ -212,7 +220,7 @@ export function createViews(sim, ac) {
           const b = this.nodes['tray:' + c.id];
           if (!b) return;
           const v = b._value;
-          v.textContent = c.lab[S.sw[c.id]];
+          v.textContent = (c.lab && c.lab[S.sw[c.id]]) ?? S.sw[c.id];
           v.style.color = (S.sw[c.id] === c.init) ? '#6b7b7f' : 'var(--phos)';
           return;
         }
@@ -228,7 +236,8 @@ export function createViews(sim, ac) {
         }
         const idx = c.states.indexOf(S.sw[c.id]);
         const f = c.states.length > 1 ? idx / (c.states.length - 1) : 0;
-        n.querySelector('.val').textContent = c.name + ' ▸ ' + c.lab[S.sw[c.id]];
+        const lbl = (c.lab && c.lab[S.sw[c.id]]) ?? S.sw[c.id];
+        n.querySelector('.val').textContent = c.name + ' \u25b8 ' + lbl;
 
         const stick = n.querySelector('.stick');
         if (stick) {
@@ -254,7 +263,10 @@ export function createViews(sim, ac) {
           knob.style.transform = `translate(-50%,-50%) rotate(${ang}deg)`;
         }
         n.classList.toggle('ok', idx > 0);
-        if (c.watch) n.classList.toggle('sel', !!S.caution[c.watch]);
+        if (c.watch) {
+          const on = typeof c.watch === 'function' ? c.watch(S) : !!S.caution[c.watch];
+          n.classList.toggle('sel', on);
+        }
       });
 
       /* cue ring on whatever the current step wants */
@@ -299,9 +311,55 @@ export function createViews(sim, ac) {
         } else if (g.kind === 'screen') {
           const lit = g.lit(S);
           n.style.opacity = lit ? 0 : 0.93;
+
+          /* Radar picture. Only when the WCS is up and the radar is actually
+             looking — otherwise the TID falls back to the navigation page. */
+          const tidRepeat = g.tid || S.sw.hsdMode === 'tid';   // is this screen the TID?
+          const tl = n.querySelector('[data-tracks]');
+          let tracksUp = false;
+          if (tl) {
+            const B = S.bvr;
+            const searching = B && ['pdsrch','rws','twsman','twsauto','pdstt','pulsestt']
+              .includes(S.sw.radarMode);
+            tracksUp = !!(lit && tidRepeat && searching);
+            tl.style.display = tracksUp ? 'block' : 'none';
+            n.style.pointerEvents = tracksUp ? 'auto' : 'none';
+            if (tracksUp) {
+              n.style.opacity = 0.92;
+              const seen = B.contacts.filter(c => c.tracked);
+              const key = seen.map(c => c.id).join(',');
+              if (tl.dataset.key !== key) {
+                tl.dataset.key = key;
+                tl.innerHTML = '';
+                seen.forEach(c => {
+                  const d = el('div', 'trk');
+                  d.dataset.trk = c.id;
+                  d.innerHTML = '<u></u><b></b><i></i><s></s>';
+                  tl.appendChild(d);
+                });
+              }
+              seen.forEach(c => {
+                const d = tl.querySelector(`[data-trk="${c.id}"]`);
+                if (!d) return;
+                d.style.left = (50 + (c.az / 65) * 44) + '%';
+                d.style.top  = (92 - (c.rng / 80) * 78) + '%';
+                d.classList.toggle('hostile', c.iff === 'hostile');
+                d.classList.toggle('friendly', c.iff === 'friendly');
+                d.classList.toggle('hooked', B.hooked === c.id);
+                d.classList.toggle('noatk', !!c.noAttack);
+                d.querySelector('b').textContent = c.prio ?? '';
+                d.querySelector('i').textContent = Math.round(c.alt);
+                const shot = B.shots.find(s => s.target === c.id);
+                const tti = d.querySelector('s');
+                tti.textContent = shot ? Math.round(shot.tti) : '';
+                tti.classList.toggle('pitbull', !!(shot && shot.active));
+              });
+            }
+          }
+
           const ip = n.querySelector('[data-ins-panel]');
           if (ip) {
-            const show = lit && (g.tid || S.sw.hsdMode === 'tid');
+            const show = lit && tidRepeat && !tracksUp;
             ip.style.display = show ? 'block' : 'none';
             if (show) {
               n.style.opacity = 0.92;

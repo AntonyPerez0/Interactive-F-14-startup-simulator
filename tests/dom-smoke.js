@@ -100,6 +100,19 @@ function matches(n, sel) {
 
 import { readFileSync } from 'node:fs';
 
+/* The TID track layer is created in buildOverlay and driven in render — if one
+   half is present without the other, tracks silently never appear. */
+{
+  const views = readFileSync(new URL('../src/core/views.js', import.meta.url), 'utf8');
+  const built = /dataset\.tracks\s*=/.test(views);
+  const driven = /querySelector\('\[data-tracks\]'\)/.test(views) && /tracksUp/.test(views);
+  if (built !== driven) {
+    console.log('  FAIL  the TID track layer is ' + (built ? 'built but never rendered' : 'rendered but never built'));
+    process.exit(1);
+  }
+  console.log('  PASS  TID track layer is both built and rendered');
+}
+
 /* An inline style always beats a stylesheet rule, so a `display` set inline can
    never be overridden by CSS. That is what stopped the tray collapsing. */
 {
@@ -170,6 +183,30 @@ try {
 
 if (!failed) {
   console.log('  PASS  app boots against a fake DOM');
+
+  /* Only the current view's controls get built, so rendering one view exercises
+     a fraction of them. Walk every tab and every procedure instead. */
+  try {
+    const { byId } = await import('../src/aircraft/registry.js');
+    const ac = byId('f14b');
+    const tabs = doc.querySelectorAll('.tab');
+    let drawn = 0;
+    for (const p of ac.procedures) {
+      for (const v of ac.views) {
+        const tab = tabs.find(t => t.dataset.view === v.id);
+        if (tab) tab.click();
+        const q = rafQueue; rafQueue = [];
+        for (const fn of q) fn(performance.now());
+        drawn++;
+      }
+    }
+    console.log('  PASS  every view rendered (' + drawn + ' passes)');
+  } catch (e) {
+    console.log('  FAIL  rendering a view threw: ' + e.message);
+    console.log(e.stack.split('\n').slice(1, 4).join('\n'));
+    failed++;
+  }
+
   let t = 0;
   for (let i = 0; i < 240 && rafQueue.length; i++) {
     const q = rafQueue; rafQueue = [];

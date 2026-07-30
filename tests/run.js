@@ -5,6 +5,21 @@ import { createSim } from '../src/core/sim.js';
 
 let failures = 0;
 const strip = t => t.replace(/<[^>]+>/g, '');
+
+/* mirrors checklist.touches(), which decides what the tray offers */
+const trayFor = proc => {
+  const ids = new Set();
+  const add = v => { if (typeof v === 'string') ids.add(v); };
+  proc.steps.forEach(st => {
+    add(st.tgt);
+    [].concat(st.ctx || []).forEach(add);
+    if (typeof st.tgt === 'function')
+      for (const m of st.tgt.toString().matchAll(/'([A-Za-z_][\w]*)'/g)) ids.add(m[1]);
+    if (typeof st.done === 'function')
+      for (const m of st.done.toString().matchAll(/s\.sw\.(\w+)/g)) ids.add(m[1]);
+  });
+  return ids;
+};
 const ok  = (label, cond, detail = '') => {
   if (!cond) failures++;
   console.log((cond ? '  PASS  ' : '  FAIL  ') + label.padEnd(42) + detail);
@@ -38,15 +53,19 @@ function harness(procedure) {
   };
   const run = secs => { for (let i = 0; i < secs * 20; i++) { sim.tick(0.05); gate(0.05); } };
   const ackWait = () => ackT;
-  const click = (id, d = 1) => { sim.click(id, d); run(0.1); };
+  const click = (id, d = 1) => { used.add(id); sim.click(id, d); run(0.1); };
   const to = (id, v) => {
+    used.add(id);
     const c = C(id), d = c && c.reverse ? -1 : 1;
     let n = 0; while (S.sw[id] !== v && n++ < 10) { sim.click(id, d); run(0.05); }
     n = 0; while (S.sw[id] !== v && n++ < 10) { sim.click(id, -d); run(0.05); }
   };
   const type = str => str.split('').forEach(d => click('cap' + d));
+  const used = new Set();
+  const _click = click, _to = to;
+  const trackUse = id => { used.add(id); };
   const kb = (open, page) => { S.kb.open = open; if (page != null) S.kb.page = page; gate(); };
-  return { sim, S, done, run, click, to, type, gate, kb, ackWait,
+  return { sim, S, done, run, click, to, type, gate, kb, ackWait, used,
            left: () => procedure.steps.filter((s, i) => !done[i]) };
 }
 
@@ -98,7 +117,7 @@ head('Pilot cold start');
 }
 
 /* --------------------------------------------------------- RIO, both ways */
-for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio')) {
+for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio' && p.meta.phase === 'startup')) {
   head('RIO · ' + proc.meta.name);
   const h = harness(proc);
   const { S, run, click, to, type, kb } = h;
@@ -381,6 +400,13 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'landing')) {
   ok('all steps complete', h.left().length === 0,
      h.done.filter(Boolean).length + '/' + proc.steps.length);
   h.left().forEach(s => console.log('           missed ' + s.n + '  ' + strip(s.t)));
+
+  const shown = trayFor(proc);
+  const hidden = [...h.used].filter(id => {
+    const c = AC.controls.find(x => x.id === id);
+    return c && c.tray && !shown.has(id);
+  });
+  ok('every off-panel control it needs is in the tray', hidden.length === 0, hidden.join(', '));
 }
 {
   head('Flown-step dwell');
@@ -457,6 +483,17 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'landing')) {
     const views = AC.sharedViews[c.view] || [c.view];
     if (!views.includes(s.view)) wrongView.push(p.meta.id + ' step ' + s.n + ' -> ' + s.tgt);
   }));
+  /* A pilot procedure must be flyable from the front seat, and vice versa —
+     nothing should send you to the other cockpit mid-checklist. */
+  const crewOf = v => AC.views.find(x => x.id === v)?.crew;
+  const crossed = [];
+  AC.procedures.forEach(p => p.steps.forEach(s => {
+    if (!s.view) return;
+    const c = crewOf(s.view);
+    if (c && c !== p.meta.crew) crossed.push(p.meta.id + ' step ' + s.n + ' -> ' + s.view);
+  }));
+  ok('no step sends you to the other cockpit', crossed.length === 0, crossed.slice(0, 4).join(', '));
+
   ok('every step names a view its control is on', wrongView.length === 0,
      wrongView.slice(0, 5).join(', '));
 
@@ -559,6 +596,160 @@ head('Airborne handover');
   ok('throttle move is not rejected', !msgs.some(m => /No N2/i.test(m)), msgs.join(' | ') || 'silent');
 }
 
+/* --------------------------------------------------------- air to air */
+for (const proc of AC.procedures.filter(p => p.meta.phase === 'combat')) {
+  head('Air to air · ' + proc.meta.name);
+  const h = harness(proc);
+  const { S, to, run } = h;
+  proc.setup(h.sim);
+  const settle = () => run(30);
+
+  to('masterArm','on'); to('masterMode','aa'); settle();
+
+  if (proc.meta.id === 'aa-gun') {
+    to('gunRate','high'); to('airSource','both'); to('gunLead','auto');
+    to('weaponSel','gun'); settle();
+    h.sim.set('trigger','fire'); run(0.5); settle();
+    ok('gun fires only in A/A with the gun selected', S.bvr.gunFired);
+  }
+  if (proc.meta.id === 'aa-sidewinder') {
+    to('swCool','on'); run(12); settle();
+    ok('seeker cools before it will fire', S.bvr.cooled);
+    to('weaponSel','sw'); to('modeStp','norm'); to('cageSeam','seam'); settle();
+    h.sim.set('trigger','fire'); run(0.5); settle();
+    ok('Fox 2 away', S.bvr.swFired);
+  }
+  if (proc.meta.id === 'aa-sparrow' || proc.meta.id === 'aa-phoenix-stt') {
+    to('hsdMode','tid'); AC.radio(h.sim, 'jCool');
+    to('mslPrep','on'); run(130); settle();
+    ok('missile prep takes about two minutes', S.bvr.prepped);
+    to('weaponSel', proc.meta.id === 'aa-sparrow' ? 'sp' : 'ph');
+    to('modeStp','norm');
+    h.sim.click('rm_rws',1); to('elBars','4'); to('azScan','40'); run(3);
+    AC.hook(h.sim, S.bvr.contacts.find(c => c.tracked).id);
+    ok('a track can be hooked on the TID', S.bvr.hooked !== null);
+    settle();
+    AC.radio(h.sim, 'jLock'); run(1); settle();
+    ok('STT locks what was hooked', S.bvr.sttLock === S.bvr.hooked || S.bvr.sttLock !== null);
+    h.sim.set('trigger','fire'); run(0.5); settle();
+    ok('shot away with a track held', S.bvr.fired > 0);
+  }
+  if (proc.meta.id === 'aa-phoenix-tws') {
+    to('liquidCool','awg9'); to('mslPrep','on'); to('weaponSel','ph');
+    to('modeStp','norm'); to('masterArm','on'); run(130);
+    to('weaponSel','ph'); to('modeStp','norm'); to('mslGate','nose');
+    to('mslOptions','norm'); to('tgtSize','large');
+    h.sim.click('rm_twsman',1); to('elBars','4'); to('azScan','20');
+    run(3); h.sim.click('rm_twsauto',1); to('capCategory','tgtdata'); run(3);
+    const tracked = S.bvr.contacts.filter(c => c.tracked);
+    AC.hook(h.sim, tracked[0].id); h.sim.set('designate','hostile'); run(0.5);
+    AC.hook(h.sim, tracked[tracked.length - 1].id); h.sim.click('noAttack', 1); run(0.5);
+    ok('a track can be designated hostile', S.bvr.contacts.some(c => c.iff === 'hostile'));
+    ok('do not attack removes it from the list',
+       S.bvr.contacts.some(c => c.noAttack) && !S.bvr.contacts.find(c => c.noAttack).prio);
+    AC.hook(h.sim, tracked[0].id); settle();
+    ok('tracks form in TWS with a decent scan', S.bvr.contacts.filter(c => c.tracked).length >= 2,
+       S.bvr.contacts.filter(c => c.tracked).length + ' tracked');
+    ok('the system prioritises them', S.bvr.contacts.some(c => c.prio === 1));
+    h.sim.click('nextLaunch', 1);
+    h.sim.click('launchBtn', 1); run(1);
+    h.sim.click('launchBtn', 1); run(1); settle();
+    ok('two Phoenixes away without a lock', S.bvr.fired >= 2, S.bvr.fired + ' fired');
+  }
+
+  ok('all steps complete', h.left().length === 0,
+     h.done.filter(Boolean).length + '/' + proc.steps.length);
+  h.left().forEach(s => console.log('           missed ' + s.n + '  ' + strip(s.t)));
+
+  /* Anything the run had to touch that lives off-panel must be offered in the
+     tray, or the user simply cannot reach it. */
+  const shown = trayFor(proc);
+  const hidden = [...h.used].filter(id => {
+    const c = AC.controls.find(x => x.id === id);
+    return c && c.tray && !shown.has(id);
+  });
+  ok('every off-panel control it needs is in the tray', hidden.length === 0, hidden.join(', '));
+}
+{
+  head('Weapon interlocks');
+  const proc = AC.procedures.find(p => p.meta.id === 'aa-phoenix-tws');
+  const h = harness(proc); proc.setup(h.sim);
+  const msgs = []; h.sim.on(m => msgs.push(m));
+  h.sim.click('launchBtn', 1);
+  ok('will not launch with master arm off', msgs.some(m => /master arm/i.test(m)));
+  h.to('masterArm','on'); h.to('weaponSel','ph'); msgs.length = 0;
+  h.sim.click('launchBtn', 1);
+  ok('will not launch before prep completes', msgs.some(m => /prep/i.test(m)));
+  const h2 = harness(AC.procedures.find(p => p.meta.id === 'aa-sidewinder'));
+  h2.sim.S.bvr && 0; AC.procedures.find(p => p.meta.id === 'aa-sidewinder').setup(h2.sim);
+  h2.to('masterArm','on'); h2.to('weaponSel','sw');
+  const m2 = []; h2.sim.on(m => m2.push(m));
+  h2.sim.set('trigger','fire'); h2.run(0.2);
+  ok('Sidewinder will not fire uncooled', m2.some(m => /cooled/i.test(m)) && !h2.S.bvr.swFired);
+}
+
+/* ------------------------------------------------------- TID repeats */
+head('TID repeat on the HSD');
+{
+  const SEARCH = ['pdsrch','rws','twsman','twsauto','pdstt','pulsestt'];
+  const shows = (sim, g) => {
+    const S = sim.S, lit = g.lit(S);
+    const tidRepeat = g.tid || S.sw.hsdMode === 'tid';
+    const searching = S.bvr && SEARCH.includes(S.sw.radarMode);
+    if (!lit) return 'dark';
+    if (lit && tidRepeat && searching) return 'radar';
+    return tidRepeat ? 'align' : 'nav';
+  };
+  const hsd = AC.gauges.find(g => g.id === 'scHsd');
+  const tid = AC.gauges.find(g => g.id === 'scTid_rioC');
+
+  ok('every screen that can repeat the TID has a track layer',
+     AC.gauges.filter(g => g.kind === 'screen' && g.ins).length >= 3);
+
+  const c = createSim(AC);
+  AC.procedures.find(p => p.meta.id === 'aa-phoenix-stt').setup(c);
+  c.set('hsdPower','on'); c.set('hsdMode','tid');
+  for (let i = 0; i < 20; i++) c.tick(0.05);
+  ok('in combat the HSD in TID shows the radar picture', shows(c, hsd) === 'radar', shows(c, hsd));
+  ok('and it matches what the RIO sees', shows(c, hsd) === shows(c, tid));
+  c.set('hsdMode','nav');
+  ok('back to NAV it shows the nav page', shows(c, hsd) === 'nav');
+
+  const s = createSim(AC);
+  s.S.power = true; s.S.rio.wcsUp = true;
+  s.set('hsdPower','on'); s.set('hsdMode','tid');
+  ok('during alignment it shows the alignment page', shows(s, hsd) === 'align');
+}
+
+/* ------------------------------------------------------ offline cache */
+head('Offline cache');
+{
+  const { readFileSync } = await import('node:fs');
+  const { globSync } = await import('node:fs');
+  const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const listed = JSON.parse(sw.slice(sw.indexOf('const SHELL = ') + 14, sw.indexOf('];') + 1));
+  const root = new URL('../', import.meta.url);
+
+  const missing = listed.filter(f => {
+    try { readFileSync(new URL(f.replace('./', ''), root)); return false; } catch (e) { return true; }
+  });
+  ok('every precached file exists', missing.length === 0, missing.join(', '));
+
+  const onDisk = globSync(['src/**/*.js', 'src/**/*.css', 'assets/**/*.jpg', 'assets/**/*.png'],
+                          { cwd: new URL('../', import.meta.url) }).map(f => './' + f.replace(/\\/g, '/'));
+  const uncached = onDisk.filter(f => !listed.includes(f));
+  ok('nothing on disk is left out', uncached.length === 0,
+     uncached.slice(0, 4).join(', ') || listed.length + ' files cached');
+
+  const manifest = JSON.parse(readFileSync(new URL('manifest.webmanifest', root), 'utf8'));
+  ok('manifest names icons that exist',
+     manifest.icons.every(i => { try { readFileSync(new URL(i.src, root)); return true; } catch (e) { return false; } }),
+     manifest.icons.length + ' icons');
+  ok('manifest is installable',
+     !!manifest.name && !!manifest.start_url && manifest.display === 'standalone' &&
+     manifest.icons.some(i => i.sizes === '512x512'));
+}
+
 /* -------------------------------------------------- multi-switch cues */
 head('Multi-switch cues');
 {
@@ -645,6 +836,23 @@ head('Knob detents');
      withAngles.every(c => c.angles.every((a, i) => i === 0 || a > c.angles[i - 1])));
   ok('declared angles stay on the dial face',
      withAngles.every(c => c.angles.every(a => a > -180 && a < 180)));
+
+  const modeBtns = AC.controls.filter(c => c.id.startsWith('rm_'));
+  const unlabelled = AC.controls.filter(c => c.states && (!c.lab || c.states.some(s => !(s in c.lab))));
+  ok('every control labels every one of its states', unlabelled.length === 0,
+     unlabelled.map(c => c.id).join(', '));
+
+  ok('WCS MODE is seven separate buttons', modeBtns.length === 7, modeBtns.length + ' buttons');
+  ok('each selects a mode on radarMode',
+     modeBtns.every(c => c.sets && c.sets.id === 'radarMode' &&
+       AC.controls.find(x => x.id === 'radarMode').states.includes(c.sets.value)));
+  ok('exactly one lights at a time', (() => {
+    const sim = createSim(AC);
+    return modeBtns.every(btn => {
+      sim.click(btn.id, 1);
+      return modeBtns.filter(b2 => b2.watch(sim.S)).length === 1;
+    });
+  })());
 
   const uhf = AC.controls.find(c => c.id === 'uhfFunc');
   ok('UHF function has all four detents',

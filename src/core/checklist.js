@@ -109,6 +109,24 @@ export function createChecklist(sim, ac) {
 
     current() { return this.steps()[this.curStep]; },
 
+    /* Every control this procedure has anything to do with — what a step points
+       at, what it lists as context, and whatever its done() reads. Used to keep
+       the tray down to what is relevant. */
+    touches() {
+      const ids = new Set();
+      const add = v => { if (typeof v === 'string') ids.add(v); };
+      this.steps().forEach(st => {
+        add(st.tgt);
+        [].concat(st.ctx || []).forEach(add);
+        // ids named inside a function target, e.g. nextOf(s,[['hookHandle','up']])
+        if (typeof st.tgt === 'function')
+          for (const m of st.tgt.toString().matchAll(/'([A-Za-z_][\w]*)'/g)) ids.add(m[1]);
+        if (typeof st.done === 'function')
+          for (const m of st.done.toString().matchAll(/s\.sw\.(\w+)/g)) ids.add(m[1]);
+      });
+      return ids;
+    },
+
     /* a step's tgt may be a string or a function of state, so a multi-press
        sequence can walk the cue from one control to the next as you go */
     target() {
