@@ -1,21 +1,23 @@
 /* ============================================================
    CORE · PRESENCE
-   An optional "N people here now" counter.
+   The optional "N people here now" counter.
 
-   GitHub Pages serves static files and nothing else, so it cannot
-   count anybody by itself — that needs something running somewhere.
-   This talks to a tiny endpoint you host; see tools/presence-worker.js
-   for one you can deploy free in a couple of minutes.
+   Written defensively, because a client that can hammer an endpoint will
+   eventually hammer an endpoint. Three separate guards, any one of which is
+   enough on its own:
 
-   With no endpoint configured this does nothing at all, and any
-   failure is swallowed so the trainer is never held up by it.
+     1. only ever one request in flight
+     2. a hard floor on the gap between requests, whoever asks
+     3. a total budget per page load, after which it stops for good
+
+   With no endpoint configured it does nothing at all, and every failure is
+   swallowed so the trainer is never held up by it.
    ============================================================ */
 import { $, el } from './dom.js';
 
-/* A beat every 45 s against a 150 s window: someone who closes the tab drops off
-   within about two minutes, and a twenty minute visit costs roughly 27 writes.
-   Cloudflare's free D1 allowance is 100,000 writes a day. */
-const BEAT = 45000;
+const BEAT      = 45000;    // normal interval
+const MIN_GAP   = 10000;    // no two requests closer than this, ever
+const MAX_CALLS = 200;      // per page load; a 45 s beat uses 80 in a whole hour
 const KEY = 'dcs-trainer-visitor';
 
 function visitorId() {
@@ -29,11 +31,12 @@ function visitorId() {
 }
 
 export function createPresence(url) {
-  if (!url) return { start() {}, stop() {} };
+  if (!url) return { counts:{}, onCounts() {}, refresh() {}, start() {}, stop() {} };
 
   const id = visitorId();
   const counts = { online: null, month: null, total: null };
-  let chip = null, timer = null, failures = 0, onCounts = null, shown = false;
+  let chip = null, timer = null, onCounts = null;
+  let failures = 0, calls = 0, inFlight = false, lastAt = 0, dead = false;
 
   const show = n => {
     if (!chip) {
@@ -44,48 +47,56 @@ export function createPresence(url) {
     }
     chip.textContent = n === 1 ? '1 here' : n + ' here';
     chip.style.display = '';
-    shown = true;
+  };
+
+  const stop = reason => {
+    dead = true;
+    if (timer) clearInterval(timer);
+    timer = null;
+    if (reason) console.info('[presence] stopped:', reason);
   };
 
   const beat = async (wantStats = false) => {
+    if (dead || inFlight) return;                       // guard 1
+    const now = Date.now();
+    if (now - lastAt < MIN_GAP) return;                 // guard 2
+    if (++calls > MAX_CALLS) return stop('call budget spent');   // guard 3
+
+    inFlight = true;
+    lastAt = now;
     try {
       const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, stats: wantStats }),
-        keepalive: true,
       });
-      if (!r.ok) throw new Error(r.status);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       const data = await r.json();
-      if (typeof data.online === 'number') { show(data.online); failures = 0; }
+      if (typeof data.online !== 'number') throw new Error('bad payload');
+
+      show(data.online);
       Object.assign(counts, data);
       if (typeof data.total === 'number' && onCounts) onCounts(counts);
+      failures = 0;
     } catch (e) {
-      /* Give up quietly if the endpoint was never there. But once the chip has
-         appeared, leave it alone — a transient failure showing a slightly stale
-         number is better than it blinking out and back. */
-      if (++failures >= 3) {
-        stop();
-        if (chip && !shown) chip.style.display = 'none';
-      }
+      if (++failures >= 3) stop('three failures: ' + e.message);
+    } finally {
+      inFlight = false;
     }
   };
 
-  const stop = () => { if (timer) clearInterval(timer); timer = null; };
-
   return {
     counts,
-    /* called once when the numbers land, so the hangar can show them */
     onCounts(fn) { onCounts = fn; },
-    /* asks for the totals as well as the live count */
     refresh() { return beat(true); },
     start() {
+      if (timer) return;                                // never start twice
       beat(true);
-      timer = setInterval(beat, BEAT);
+      timer = setInterval(() => beat(false), BEAT);
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') beat();
+        if (document.visibilityState === 'visible') beat(false);
       });
     },
-    stop,
+    stop: () => stop('asked to stop'),
   };
 }

@@ -568,6 +568,32 @@ head('Saved progress');
   off.start();
   ok('starting it is harmless', true);
 
+  /* A client that can flood an endpoint eventually will. Prove it cannot. */
+  {
+    let sent = 0;
+    const realFetch = globalThis.fetch, realDoc = globalThis.document, realLS = globalThis.localStorage;
+    globalThis.fetch = async () => { sent++; return { ok:true, json: async () => ({ online:1 }) }; };
+    globalThis.document = { addEventListener() {}, visibilityState:'visible', createElement: () => { throw new Error('no dom'); } };
+    globalThis.localStorage = { getItem:()=>'test-id', setItem(){} };
+
+    const P = createPresence('/api/presence');
+    P.start();
+    for (let i = 0; i < 5000; i++) P.refresh();
+    await new Promise(r => setTimeout(r, 30));
+    ok('5,000 calls in a loop send at most one request', sent <= 1, sent + ' sent');
+
+    globalThis.fetch = realFetch; globalThis.document = realDoc; globalThis.localStorage = realLS;
+  }
+
+  const { readFileSync: _rf } = await import('node:fs');
+  const src = _rf(new URL('../src/core/presence.js', import.meta.url), 'utf8');
+  ok('only one request in flight at a time', /if \(dead \|\| inFlight\) return/.test(src));
+  ok('a hard floor between requests', /now - lastAt < MIN_GAP/.test(src));
+  ok('a budget per page load', /\+\+calls > MAX_CALLS/.test(src));
+  ok('it stops for good after repeated failure', /\+\+failures >= 3\) stop/.test(src));
+  ok('it cannot be started twice', /if \(timer\) return;/.test(src));
+  ok('no keepalive, which exhausts the browser quota', !/keepalive/.test(src));
+
   const { readFileSync } = await import('node:fs');
   const fn = readFileSync(new URL('../functions/api/presence.js', import.meta.url), 'utf8');
   ok('the Pages Function is there', /onRequestPost/.test(fn));
