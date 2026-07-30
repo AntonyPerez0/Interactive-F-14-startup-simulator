@@ -8,6 +8,9 @@ import { createSim } from './sim.js';
 import { createViews } from './views.js';
 import { createChecklist } from './checklist.js';
 import { createKneecard } from './kneecard.js';
+import { createStats, mmss } from './stats.js';
+import { createPresence } from './presence.js';
+import { PRESENCE_URL } from './config.js';
 import { createMenu } from './menu.js';
 import { catalogue, byId } from '../aircraft/registry.js';
 
@@ -16,6 +19,8 @@ const sim = createSim(ac);
 const V   = createViews(sim, ac);
 const K   = createChecklist(sim, ac);
 const KB  = createKneecard(sim, ac);
+const ST  = createStats();
+K.onFinish = r => ST.finished(K.procedure.meta.id, r);
 
 sim.on((m, k) => toast(m, k));
 
@@ -61,7 +66,7 @@ const cautionLamps = ac.cautions.map(([id, label]) => {
 });
 
 /* ---------------- procedures, chosen from the home screen ---------------- */
-const menu = createMenu(catalogue, (_ac, procedure) => startProcedure(procedure));
+const menu = createMenu(catalogue, (_ac, procedure) => startProcedure(procedure), ST);
 
 let current = null;
 
@@ -77,6 +82,7 @@ function startProcedure(procedure) {
   K.resetProgress();
   K.setProcedure(procedure);
   K.runStart = sim.S.t;
+  ST.started(procedure.meta.id);
   $('#timechip').textContent = '1×';
   $('#timechip').classList.remove('warn');
   closeComms();
@@ -371,5 +377,6 @@ function frame(now) {
     : (cur ? cur.t.replace(/<[^>]+>/g, '') : '—');
   cautionLamps.forEach(c => { c.node.classList.toggle('on', !!S.caution[c.id]); });
   requestAnimationFrame(frame);
+createPresence(PRESENCE_URL).start();
 }
 requestAnimationFrame(frame);

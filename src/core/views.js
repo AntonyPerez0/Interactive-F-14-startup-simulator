@@ -102,6 +102,12 @@ export function createViews(sim, ac) {
           n.dataset.id = g.id;
           n.style.fontSize = (g.w < 90 ? 12 : 13) + 'px';
 
+        } else if (g.kind === 'needle') {
+          n.className = 'gauge needle';
+          n.dataset.id = g.id;
+          n.appendChild(el('i'));
+          n.appendChild(el('b'));
+
         } else if (g.kind === 'screen') {
           n.style.background = g.led
             ? 'linear-gradient(180deg,#160b08,#0b0605 60%,#100807)'
@@ -280,6 +286,15 @@ export function createViews(sim, ac) {
         } else if (g.kind === 'chip') {
           n.textContent = g.read(S);
           n.classList.toggle('dim', !S.power);
+
+        } else if (g.kind === 'needle') {
+          const lit = !g.lit || g.lit(S);
+          n.style.opacity = lit ? 1 : 0;
+          if (lit) {
+            const v = Math.max(g.min, Math.min(g.max, g.read(S)));
+            const ang = g.a0 + ((v - g.min) / (g.max - g.min)) * (g.a1 - g.a0);
+            n.querySelector('i').style.transform = `translateX(-50%) rotate(${ang}deg)`;
+          }
 
         } else if (g.kind === 'screen') {
           const lit = g.lit(S);

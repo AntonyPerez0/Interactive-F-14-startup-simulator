@@ -472,3 +472,33 @@ body.edit #editbar{display:flex}
   .planecard{padding:10px 11px}
   .planecard b{font-size:12.5px}
 }
+
+/* ---------- your saved progress, and the optional online counter ---------- */
+.yourstats{display:flex;flex-wrap:wrap;align-items:center;gap:18px;margin-top:22px;padding:12px 15px;
+  border:1px solid var(--seam-hi);border-radius:3px;background:#0e1719;
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-dim)}
+.yourstats b{font-family:var(--data);font-size:15px;color:var(--phos);margin-right:5px}
+.wipe{margin-left:auto;font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--txt-dim);border:1px solid var(--seam-hi);border-radius:2px;padding:5px 10px}
+.wipe:hover{color:var(--warn);border-color:#5a2626}
+.proc .stat{font-family:var(--data);font-size:10px;letter-spacing:.08em;color:#3f4f53;
+  min-width:96px;text-align:right}
+.proc .stat.on{color:var(--phos)}
+.chip.presence{color:var(--phos);border-color:var(--phos-dim)}
+@media (max-width:820px){
+  .proc{flex-wrap:wrap;row-gap:5px}
+  .proc b{flex:1 1 100%;order:2}
+  .proc .crew{order:1}
+  .proc .n{order:3;margin-left:auto}
+  .proc .stat{order:4;min-width:0;text-align:left;margin-left:10px}
+  .yourstats{gap:12px;font-size:10px}
+}
+
+/* ---------- a pointer drawn over a real dial ---------- */
+.gauge.needle{pointer-events:none;border-radius:50%;transition:opacity .2s}
+.gauge.needle i{position:absolute;left:50%;bottom:50%;width:3px;height:43%;
+  background:linear-gradient(180deg,#f2f4ef,#b9bfb6);border-radius:2px;
+  transform-origin:50% 100%;transform:translateX(-50%);
+  box-shadow:0 0 5px rgba(0,0,0,.85)}
+.gauge.needle b{position:absolute;left:50%;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;
+  border-radius:50%;background:#d7dbd3;box-shadow:0 0 4px rgba(0,0,0,.8)}

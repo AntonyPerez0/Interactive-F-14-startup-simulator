@@ -87,6 +87,10 @@ or `shutdown`. A phase with nothing in it shows as "Not built yet".
 
 `meta` needs `id`, `crew`, `phase`, `name` and `view` (the tab to open on).
 
+`tick(sim, dt, dtReal)` gets both the compressed and the real elapsed time.
+Use `dtReal` for anything that should run at wall-clock speed regardless of the
+time chip — instrument self-tests, for instance.
+
 A procedure may also export `setup(sim)`, run straight after the reset, to hand
 the aircraft over in some other state. The landing procedures use
 `setAirborne()` — engines at half throttle, generators on, hydraulics up, INS
@@ -118,8 +122,19 @@ a test enforces that. **Show me** derives the view from the control itself, so a
 wrong value is harmless but misleading.
 
 `tgt` names the control the cue ring and the **Show me** button point at. It can
-also be a function of state, which is how a multi-press sequence walks the cue
-from one key to the next:
+also be a function of state, which is how a step that needs several controls
+walks the cue from one to the next as you work them:
+
+```js
+{ n:30, t:'VDI, HUD and HSD power switches — <b>ON</b>',
+  tgt: s => nextOf(s, [['vdiPower','on'], ['hudPower','on'], ['hsdPower','on']]),
+  ctx: ['hudPower','hsdPower'],
+  done: s => s.sw.vdiPower==='on' && s.sw.hudPower==='on' && s.sw.hsdPower==='on' },
+```
+
+`nextOf` points at the first control not yet where it should be, so a verify
+step whose switches are already correct skips straight to whatever still needs
+doing. The same pattern drives the CAP keypad:
 
 ```js
 { n:9, g:'2 · Present Position', t:'Enter latitude — <b>N 25°01.4′</b>',
@@ -149,6 +164,40 @@ kneeboard: {
 
 A step points at a page with `tgt:'kb:ground'`, the same way `tgt:'comms:ground'`
 points at a radio menu.
+
+## Saved progress
+
+Times and attempts are kept in the browser's own storage — runs, completions,
+clean runs and a best time per procedure. Nothing is sent anywhere, and it works
+on a static host. The hangar shows your totals with a **Clear** button, each
+procedure card shows its best time, and the completion card flags a new record.
+
+A best time only counts for a **clean** run — no skipped steps, no faults —
+otherwise skipping everything would win.
+
+If the browser blocks storage, the trainer says so and keeps working; it just
+forgets on reload.
+
+## Counting who is online
+
+GitHub Pages serves files and runs no code, so it cannot count visitors by
+itself. That needs a small endpoint somewhere else.
+
+The client side is written and switched off. Deploy `tools/presence-worker.js`
+to Cloudflare Workers — it is about forty lines and free — then paste its URL
+into `PRESENCE_URL` in `src/core/config.js`. A chip appears in the top bar
+reading "7 here".
+
+The contract is deliberately trivial, so any host will do:
+
+```
+POST { "id": "<random per browser>" }   ->   { "online": 7 }
+```
+
+With no URL configured nothing is requested and no chip appears. If the endpoint
+stops answering, the client gives up after three tries and hides the chip rather
+than retrying forever. The only thing stored is a random id per browser and a
+timestamp — no addresses, no cookies.
 
 ## Adding an aircraft
 

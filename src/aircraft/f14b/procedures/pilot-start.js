@@ -1,3 +1,4 @@
+import { nextOf } from '../systems.js';
 /* F-14B · PILOT START-UP
    Chuck's DCS F-14B guide, Part 4 sections 1-3 (62 numbered steps),
    plus the oversweep exit from Part 5 steps 8-9.
@@ -47,7 +48,7 @@ export const steps = [
  note:'Three positions: AUTO/LOW, LOW and HIGH.',
  tgt:'emergFltHyd', done:s=>s.sw.emergFltHyd==='autolow'},
 {n:14, g:'2 · Engine Start', t:'L and R MASTER GEN — verify <b>NORM</b>',
- tgt:'masterGenL', done:s=>s.sw.masterGenL==='norm'&&s.sw.masterGenR==='norm'},
+ tgt:s=>nextOf(s,[['masterGenL','norm'],['masterGenR','norm']]), ctx:['masterGenR'], done:s=>s.sw.masterGenL==='norm'&&s.sw.masterGenR==='norm'},
 {n:15, g:'2 · Engine Start', t:'Engine Crank — <b>R</b> (right engine first)',
  note:'Right-click the crank switch — the L / OFF / R toggle below the INLET RAMPS switches. START VALVE lights and N2 winds up to about 20%.',
  tgt:'engCrank', done:s=>s.sw.engCrank==='right'||s.eng.R.lit},
@@ -90,7 +91,8 @@ export const steps = [
 
 /* ---------------- 3. POST-START ---------------- */
 {n:30, g:'3 · Pilot Post-Start', t:'VDI, HUD and HSD power switches — <b>ON</b>',
- tgt:'vdiPower', view:'front',
+ tgt:s=>nextOf(s,[['vdiPower','on'],['hudPower','on'],['hsdPower','on']]),
+ ctx:['hudPower','hsdPower'], view:'front',
  done:s=>s.sw.vdiPower==='on'&&s.sw.hudPower==='on'&&s.sw.hsdPower==='on'},
 {n:31, g:'3 · Pilot Post-Start', t:'HSD Mode — <b>TID</b>',
  note:'Repeats the RIO\'s Tactical Information Display so you can watch the INS align.',
@@ -114,7 +116,8 @@ export const steps = [
 {n:39, g:'3 · Pilot Post-Start', t:'Verify wing sweep <b>68°</b>, handle full aft',
  tgt:'wingSweep', done:s=>s.sweep>=67.5&&s.sw.wingSweep==='oversweep'},
 {n:40, g:'3 · Pilot Post-Start', t:'AFCS SAS — <b>PITCH, ROLL, YAW ON</b>',
- tgt:'afcsPitch', view:'consoles',
+ tgt:s=>nextOf(s,[['afcsPitch','on'],['afcsRoll','on'],['afcsYaw','on']]),
+ ctx:['afcsRoll','afcsYaw'], view:'consoles',
  done:s=>s.sw.afcsPitch==='on'&&s.sw.afcsRoll==='on'&&s.sw.afcsYaw==='on'},
 {n:41, g:'3 · Pilot Post-Start', t:'WING/EXT TRANS — <b>AUTO</b>',
  tgt:'wingExtTrans', view:'front', done:s=>s.sw.wingExtTrans==='auto'},
@@ -125,7 +128,7 @@ export const steps = [
 {n:44, g:'3 · Pilot Post-Start', t:'ARA-63 ICLS receiver power — <b>ON</b>',
  tgt:'ara63', view:'consoles', done:s=>s.sw.ara63==='on'},
 {n:45, g:'3 · Pilot Post-Start', t:'Radar altimeter — one click <b>clockwise</b> to start BIT',
- note:'The self-test sweeps the needle to maximum and straight back to zero. The 100 ±5 ft indication is the pilot-initiated BIT, held on the button.',
+ note:'Watch the needle on the dial — it winds up to maximum over a second or so, hangs there, then sweeps back to zero. The whole test takes about six seconds, and time compression will not rush it. The 100 ±5 ft reading is the pilot-initiated BIT, held on the button — a different test.',
  tgt:'radAltKnob', view:'front', done:s=>s.radalt.bitDone},
 {n:46, g:'3 · Pilot Post-Start', t:'Standby ADI — <b>erect the gyro</b>',
  note:'At least two minutes before takeoff. Pull and turn the knob until the ball matches your attitude.',

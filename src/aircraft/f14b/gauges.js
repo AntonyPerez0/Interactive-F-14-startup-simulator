@@ -40,6 +40,12 @@ export const gauges = [
     read: s => 'CMB' + Math.round(s.hydComb) + ' FLT' + Math.round(s.hydFlt) },   // COMP left, FLT right, as on the dial
   { id:'dgRadalt', view:'front', kind:'chip', x:280, y:498, w:112, h:20, name:'RADAR ALTIMETER',
     read: s => 'RALT ' + Math.round(s.radalt.value) + ' FT' },
+  /* Pointer over the radar altimeter dial, pivot (327,524) r80, set by hand in
+     Calibrate. Zero at the top, full scale 350 degrees clockwise. */
+  { id:'ndRadalt', view:'front', kind:'needle', x:247, y:444, w:160, h:160,
+    name:'RADAR ALTIMETER NEEDLE',
+    lit: s => s.power && s.sw.radAltKnob === 'on',
+    read: s => s.radalt.value, min: 0, max: 5000, a0: 0, a1: 350 },
   { id:'dgFuel', view:'front', kind:'chip', x:1306, y:812, w:100, h:20, name:'FUEL',
     read: s => Math.round(s.fuel) + ' LB' },
 

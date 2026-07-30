@@ -120,6 +120,17 @@ export function setAirborne(sim, opts = {}) {
   return S;
 }
 
+/* For a step that needs several switches: points at the first one still not
+   where it should be, so the cue walks the group as you work it. Give it pairs
+   of [id, wanted], where wanted is a value or a predicate. */
+export function nextOf(S, pairs) {
+  for (const [id, want] of pairs) {
+    const ok = typeof want === 'function' ? want(S) : S.sw[id] === want;
+    if (!ok) return id;
+  }
+  return pairs[pairs.length - 1][0];
+}
+
 export function insPct(S) {
   if (!S.ins.mode) return 0;
   return Math.min(1, S.ins.t / INS_TIME[S.ins.mode]);
@@ -188,7 +199,7 @@ export function onChange(sim, id, to) {
         break;
       }
       case 'radAltKnob':
-        if(to==='on'){ S.radalt.t=0; S.radalt.value=5000; sim.emit('Radar altimeter BIT — needle sweeps to maximum, then back to zero.','radio'); }
+        if(to==='on'){ S.radalt.t=0; S.radalt.value=0; sim.emit('Radar altimeter BIT — needle sweeps to maximum, then back to zero.','radio'); }
         else { S.radalt.bitDone=false; S.radalt.value=0; }
         break;
       case 'stbyAdi':
@@ -288,7 +299,7 @@ export function radio(sim, act) {
   }
 
 /* ---------------- per-frame physics ---------------- */
-export function tick(sim, dt) {
+export function tick(sim, dt, dtReal = dt) {
     const S = sim.S;
 
     ['L','R'].forEach(k=>{
@@ -443,12 +454,21 @@ export function tick(sim, dt) {
     // radar altimeter BIT
     if(S.sw.radAltKnob!=='on'){ S.radalt.value=0; }
     else if(!S.radalt.bitDone){
-      S.radalt.t += dt;
-      // self-BIT sweeps the needle to maximum and straight back to zero.
-      // The 100 +/- 5 ft indication is the pilot-initiated BIT, held on the button.
-      S.radalt.value = S.radalt.t < 4 ? 5000 : 0;
-      // guide: 6000 ft is displayed for about 2 to 3 minutes while it warms up
-      if(S.radalt.t > 150){
+      S.radalt.t += dtReal;   // a self-test takes as long as it takes
+      /* The self-BIT drives the needle up to maximum and straight back down.
+         Eased at both ends so it reads like a mechanical pointer rather than a
+         number jumping. The 100 +/- 5 ft indication is the pilot-initiated BIT,
+         held on the button, which is a different thing. */
+      const rt = S.radalt.t;
+      const ease = x => x < 0.5 ? 2*x*x : 1 - Math.pow(-2*x + 2, 2) / 2;
+      if (rt < 2.4)      S.radalt.value = 5000 * ease(rt / 2.4);
+      else if (rt < 3.0) S.radalt.value = 5000;
+      else if (rt < 6.0) S.radalt.value = 5000 * (1 - ease((rt - 3.0) / 3.0));
+      else               S.radalt.value = 0;
+      /* The guide describes a two to three minute warm-up, but the review was
+         specific that the self-BIT is just this sweep — so the test completes
+         when the needle is back on the peg rather than a couple of minutes later. */
+      if(S.radalt.t > 6.3){
         S.radalt.bitDone=true; S.radalt.value=0;
         sim.emit('Radar altimeter BIT complete.','good');
       }

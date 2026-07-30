@@ -101,9 +101,11 @@ export const controls = [
     name:'SAS ROLL', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
   { id:'afcsYaw', view:'consoles', kind:'sw', x:261, y:543, w:34, h:58,
     name:'SAS YAW', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
+  // four detents, not three — ADF was missing. Angles measured off the legends.
   { id:'uhfFunc', view:'consoles', kind:'knob', x:594, y:614, w:46, h:48, reverse:true,
-    name:'UHF 1 FUNCTION (ARC-159)', states:['off','main','both'],
-    lab:{off:'OFF',main:'MAIN',both:'BOTH'}, init:'off' },
+    name:'UHF 1 FUNCTION (ARC-159)', states:['off','main','both','adf'],
+    lab:{off:'OFF',main:'MAIN',both:'BOTH',adf:'ADF'},
+    angles:[-135, -106, -86, -63], init:'off' },
   { id:'tacanFunc', view:'consoles', kind:'knob', x:588, y:810, w:52, h:60, reverse:true,
     name:'TACAN FUNCTION', states:['off','rec','tr','aa','bcn'],
     lab:{off:'OFF',rec:'REC',tr:'T/R',aa:'A/A',bcn:'BCN'}, init:'off' },

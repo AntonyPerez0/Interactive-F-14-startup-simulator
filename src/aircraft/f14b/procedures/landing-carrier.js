@@ -7,7 +7,7 @@
    Steps that are flown rather than switched carry ack:true — tap the line to
    confirm them, since there is no flight model here to watch. */
 
-import { setAirborne } from '../systems.js';
+import { setAirborne, nextOf } from '../systems.js';
 
 /* This one starts in the air, not cold and dark. */
 export const setup = sim => setAirborne(sim);
@@ -29,7 +29,7 @@ export const steps = [
   tgt:'ara63', view:'consoles', done:s=>s.sw.ara63==='on' },
 { g:'1 · Three Miles', t:'HUD and VDI AWL mode — both to <b>ILS</b>',
   note:'The needles will not show up otherwise. Two separate switches on the display panel.',
-  tgt:'hudAwl', view:'front', done:s=>s.sw.hudAwl==='ils'&&s.sw.vdiAwl==='ils' },
+  tgt:s=>nextOf(s,[['hudAwl','ils'],['vdiAwl','ils']]), ctx:['vdiAwl'], view:'front', done:s=>s.sw.hudAwl==='ils'&&s.sw.vdiAwl==='ils' },
 { g:'1 · Three Miles', t:'HUD master mode — <b>LDG</b>',
   tgt:'masterMode', view:'front', done:s=>s.sw.masterMode==='ldg' },
 { g:'1 · Three Miles', t:'All arming switches — <b>SAFE</b>',
@@ -63,7 +63,7 @@ export const steps = [
   note:'Distance is top left on the HSD. Flying wing? Break 15–17 seconds after your lead — that is what gives you the spacing to roll out as he takes the wire.',
   ack:true, done:()=>false },
 { g:'3 · The Break', t:'Throttles <b>IDLE</b>, boards <b>fully open</b>',
-  tgt:'speedBrake', done:s=>s.sw.speedBrake==='out'&&s.sw.throttleL==='idle'&&s.sw.throttleR==='idle' },
+  tgt:s=>nextOf(s,[['speedBrake','out'],['throttleL','idle'],['throttleR','idle']]), done:s=>s.sw.speedBrake==='out'&&s.sw.throttleL==='idle'&&s.sw.throttleR==='idle' },
 { g:'3 · The Break', t:'Roll left, stop the roll, <b>then</b> pull',
   note:'It must be a level break — drag the flight path marker along the horizon and watch the VSI. Rule of thumb: G matches airspeed, so 3.5 G at 350 kt. Easier in practice to pull to 13–15 units AoA and ease off as the speed decays, reducing bank to stay level.',
   ack:true, done:()=>false },
@@ -134,10 +134,10 @@ export const steps = [
   ack:true, done:()=>false },
 { g:'9 · Touchdown', t:'On deck — <b>MIL power</b>, and only pull it off once you are stopped',
   note:'If you caught a wire you stop anyway. If you did not, you need every bit of thrust, and the engines take time.',
-  tgt:'throttleL', view:'consoles', done:s=>s.sw.throttleL==='mil'&&s.sw.throttleR==='mil' },
+  tgt:s=>nextOf(s,[['throttleL','mil'],['throttleR','mil']]), ctx:['throttleR'], view:'consoles', done:s=>s.sw.throttleL==='mil'&&s.sw.throttleR==='mil' },
 { g:'9 · Touchdown', t:'Stopped — <b>hook up, flaps up, wings back</b>, then follow the taxi director',
   note:'Get clear so the jet behind you can land.',
-  tgt:'hookHandle', view:'front',
+  tgt:s=>nextOf(s,[['hookHandle','up'],['flapsLever','up'],['wingSweep','oversweep']]), view:'front',
   done:s=>s.sw.hookHandle==='up'&&s.sw.flapsLever==='up'&&s.sw.wingSweep==='oversweep' },
 { g:'9 · Touchdown', t:'Bolter? <b>10° right of BRC</b>, climb to <b>600 ft</b>, turn downwind and go again',
   ack:true, done:()=>false },

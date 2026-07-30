@@ -280,11 +280,30 @@ head('Systems corrections');
 }
 {
   const h = harness(AC.procedures[0]);
-  const { S, run } = h;
-  S.gpu = true; h.sim.click('radAltKnob', 1); run(1);
-  const peak = S.radalt.value; run(6);
+  const { S } = h;
+  S.gpu = true; h.run(0.2);
+  h.sim.click('radAltKnob', 1);
+  const trace = [];
+  for (let i = 0; i < 90; i++) { trace.push(S.radalt.value); h.sim.tick(0.1); }
+  ok('the whole test is over in a few seconds', S.radalt.bitDone);
+  const peak = Math.max(...trace), at = trace.indexOf(peak) * 0.1;
+
   ok('RADALT self-BIT sweeps to max then zero',
-     peak >= 4000 && Math.round(S.radalt.value) === 0, 'peak ' + peak);
+     peak >= 4990 && trace[trace.length - 1] < 1, 'peak ' + peak.toFixed(0));
+  ok('the needle starts at zero', trace[0] < 1, trace[0].toFixed(0) + ' ft');
+  ok('it takes a couple of seconds to wind up', at > 2.0 && at < 3.2, 'peak at ' + at.toFixed(1) + 's');
+
+  // time compression must not turn the self-test into a blink
+  const fast = harness(AC.procedures[0]);
+  fast.S.gpu = true; fast.run(0.2);
+  fast.sim.click('radAltKnob', 1);
+  fast.S.rate = 16;
+  let el = 0, done = null;
+  while (el < 12) { fast.sim.tick(0.05); el += 0.05; if (fast.S.radalt.bitDone && done === null) done = el; }
+  ok('the sweep ignores time compression', done > 5 && done < 8, 'complete at ' + done.toFixed(1) + 's at 16x');
+  ok('it sweeps rather than jumping',
+     trace.slice(0, 16).filter(v => v > 200 && v < 4800).length > 8,
+     trace.slice(0, 16).filter(v => v > 200 && v < 4800).length + ' intermediate readings');
 }
 {
   // alignment now runs to the DCS timings, with the caret in thirds
@@ -447,6 +466,72 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'landing')) {
      AC.procedures.every(p => p.steps.every(s => typeof s.done === 'function')));
 }}
 
+/* ------------------------------------------------------- saved progress */
+head('Saved progress');
+{
+  // a tiny stand-in for localStorage, so the module can be exercised headless
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k),
+  };
+  const { createStats, mmss } = await import('../src/core/stats.js');
+  const ST = createStats();
+
+  ok('storage is available', ST.available);
+  ok('nothing recorded to begin with', ST.of('pilot-start') === null);
+
+  ST.started('pilot-start');
+  const a = ST.finished('pilot-start', { seconds: 600, skips: 0, faults: 0 });
+  ok('a clean run sets a best time', a.isBest && a.best === 600, mmss(a.best));
+
+  ST.started('pilot-start');
+  const b = ST.finished('pilot-start', { seconds: 500, skips: 2, faults: 0 });
+  ok('a run with skips cannot take the record', !b.isBest && b.best === 600);
+
+  ST.started('pilot-start');
+  const c = ST.finished('pilot-start', { seconds: 480, skips: 0, faults: 1 });
+  ok('a run with faults cannot take the record', !c.isBest && c.best === 600);
+
+  ST.started('pilot-start');
+  const d = ST.finished('pilot-start', { seconds: 450, skips: 0, faults: 0 });
+  ok('a faster clean run does take it', d.isBest && d.best === 450, mmss(d.best));
+
+  const r = ST.of('pilot-start');
+  ok('runs and completions counted', r.runs === 4 && r.completed === 4 && r.clean === 2,
+     r.runs + ' runs, ' + r.clean + ' clean');
+
+  const s = ST.summary();
+  ok('summary totals across procedures', s.runs === 4 && s.attempted === 1);
+
+  // survives a reload
+  const ST2 = createStats();
+  ok('progress persists', ST2.of('pilot-start').best === 450);
+
+  ST2.clear();
+  ok('clearing wipes it', ST2.of('pilot-start') === null);
+
+  // and degrades rather than throwing when storage is blocked
+  globalThis.localStorage = {
+    getItem() { throw new Error('blocked'); },
+    setItem() { throw new Error('blocked'); },
+  };
+  const ST3 = createStats();
+  ok('survives storage being blocked', ST3.available === false);
+  ST3.started('x'); ST3.finished('x', { seconds: 1, skips: 0, faults: 0 });
+  ok('still usable in memory', ST3.of('x').completed === 1);
+  delete globalThis.localStorage;
+}
+{
+  head('Presence counter');
+  const { createPresence } = await import('../src/core/presence.js');
+  const off = createPresence('');
+  ok('does nothing without an endpoint', typeof off.start === 'function');
+  off.start();
+  ok('starting it is harmless', true);
+}
+
 /* ------------------------------------------------- airborne handover */
 head('Airborne handover');
 {
@@ -474,6 +559,80 @@ head('Airborne handover');
   ok('throttle move is not rejected', !msgs.some(m => /No N2/i.test(m)), msgs.join(' | ') || 'silent');
 }
 
+/* -------------------------------------------------- multi-switch cues */
+head('Multi-switch cues');
+{
+  const cases = [
+    ['pilot-start',    /VDI, HUD and HSD/,  [['vdiPower','on'],['hudPower','on'],['hsdPower','on']]],
+    ['pilot-start',    /SAS|AFCS|stability/i, [['afcsPitch','on'],['afcsRoll','on'],['afcsYaw','on']]],
+    ['pilot-start',    /MASTER GEN/,        [['masterGenL','norm'],['masterGenR','norm']]],
+    ['landing-carrier',/AWL mode/,          [['hudAwl','ils'],['vdiAwl','ils']]],
+  ];
+  for (const [pid, re, seq] of cases) {
+    const proc = AC.procedures.find(p => p.meta.id === pid);
+    const step = proc.steps.find(s => re.test(s.t));
+    if (!step) { ok('found a step matching ' + re, false); continue; }
+    const sim = createSim(AC);
+    if (proc.setup) proc.setup(sim);
+    // put the whole group somewhere wrong first — a verify step whose switches
+    // are already correct is meant to skip straight to whatever still needs doing
+    seq.forEach(([id, want]) => {
+      const c = C(id);
+      sim.S.sw[id] = c.states.find(v => v !== want) ?? want;
+    });
+    const trace = [];
+    let good = true;
+    for (const [id, want] of seq) {
+      const got = step.tgt(sim.S);
+      trace.push(got);
+      if (got !== id) good = false;
+      sim.set(id, want);
+    }
+    ok('cue walks ' + strip(step.t).slice(0, 32), good, trace.join(' \u2192 '));
+  }
+
+  // and every function target must still resolve to something real
+  const ids = new Set(AC.controls.map(c => c.id).concat(AC.gauges.map(g => g.id)));
+  const bad = [];
+  AC.procedures.forEach(p => p.steps.forEach(s => {
+    if (typeof s.tgt !== 'function') return;
+    const sim = createSim(AC);
+    if (p.setup) p.setup(sim);
+    const t = s.tgt(sim.S);
+    if (!ids.has(t)) bad.push(p.meta.id + ' step ' + s.n + ' -> ' + t);
+  }));
+  ok('every walking cue resolves to a real control', bad.length === 0, bad.join(', '));
+
+  // ctx lists must name real controls too
+  const badCtx = [];
+  AC.procedures.forEach(p => p.steps.forEach(s => {
+    [].concat(s.ctx || []).forEach(id => { if (!ids.has(id)) badCtx.push(p.meta.id + ' step ' + s.n + ' -> ' + id); });
+  }));
+  ok('every step ctx names a real control', badCtx.length === 0, badCtx.join(', '));
+
+  /* A walking cue that points at a control its own done() never mentions is a
+     cue attached to the wrong step — which is exactly what happened once. */
+  const mismatched = [];
+  AC.procedures.forEach(p => p.steps.forEach(s => {
+    if (typeof s.tgt !== 'function') return;
+    const cares = new Set([...s.done.toString().matchAll(/s\.(?:sw|rio\.entered)\.(\w+)/g)].map(m => m[1]));
+    if (!cares.size) return;                       // gauge or state-based, nothing to compare
+    const seen = new Set();
+    for (let n = 0; n < 12; n++) {
+      const sim = createSim(AC);
+      if (p.setup) p.setup(sim);
+      // randomise the group so the cue is exercised at each position
+      AC.controls.forEach(c => { if (c.states && Math.random() < 0.5)
+        sim.S.sw[c.id] = c.states[Math.floor(Math.random() * c.states.length)]; });
+      seen.add(s.tgt(sim.S));
+    }
+    const stray = [...seen].filter(id => !cares.has(id) && AC.controls.some(c => c.id === id)
+                                      && !/^cap|^msg/.test(id));
+    if (stray.length) mismatched.push(p.meta.id + ' step ' + s.n + ' -> ' + stray.join('/'));
+  }));
+  ok('no walking cue points outside its own step', mismatched.length === 0, mismatched.join(', '));
+}
+
 /* ------------------------------------------------------- knob detents */
 head('Knob detents');
 {
@@ -486,6 +645,12 @@ head('Knob detents');
      withAngles.every(c => c.angles.every((a, i) => i === 0 || a > c.angles[i - 1])));
   ok('declared angles stay on the dial face',
      withAngles.every(c => c.angles.every(a => a > -180 && a < 180)));
+
+  const uhf = AC.controls.find(c => c.id === 'uhfFunc');
+  ok('UHF function has all four detents',
+     uhf.states.join() === 'off,main,both,adf', uhf.states.join(' / '));
+  ok('UHF detent angles were measured', Array.isArray(uhf.angles) && uhf.angles.length === 4,
+     (uhf.angles || []).join('\u00b0 ') + '\u00b0');
 
   const decm = AC.controls.find(c => c.id === 'decmMode');
   ok('DECM reads OFF / STBY / HOLD / ACT / REC / RPT',

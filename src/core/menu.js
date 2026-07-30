@@ -8,6 +8,7 @@
    modules, so adding a jet or a procedure needs no change here.
    ============================================================ */
 import { $, el } from './dom.js';
+import { mmss } from './stats.js';
 
 const PHASES = [
   { id:'startup',  label:'Start-up',  blurb:'Cold and dark to ready to taxi' },
@@ -15,7 +16,7 @@ const PHASES = [
   { id:'shutdown', label:'Shutdown',  blurb:'Securing the aircraft' },
 ];
 
-export function createMenu(catalogue, onPick) {
+export function createMenu(catalogue, onPick, stats) {
   const M = {
     screen: 'hangar',
     entry: catalogue.find(c => c.module) || catalogue[0],
@@ -47,12 +48,31 @@ export function createMenu(catalogue, onPick) {
     renderHangar() {
       const head = el('div', 'menuhead');
       const built = catalogue.filter(c => c.module).length;
+      const sum = stats ? stats.summary() : null;
       head.innerHTML =
         '<div class="kick">DCS Cockpit Trainer</div>' +
         '<h1>Choose an aircraft<small>' + built + ' of ' + catalogue.length +
         ' built. Every switch is live, and the checklist ticks itself off when the ' +
         'aircraft actually gets there.</small></h1>';
       this.inner.appendChild(head);
+
+      if (sum && sum.runs) {
+        const bar = el('div', 'yourstats');
+        bar.innerHTML =
+          `<span><b>${sum.runs}</b> runs</span>` +
+          `<span><b>${sum.completed}</b> completed</span>` +
+          `<span><b>${sum.clean}</b> clean</span>` +
+          `<span><b>${sum.attempted}</b> procedures tried</span>`;
+        const wipe = el('button', 'wipe');
+        wipe.textContent = 'Clear';
+        wipe.onclick = () => { if (confirm('Clear your saved times and progress?')) { stats.clear(); this.render(); } };
+        bar.appendChild(wipe);
+        this.inner.appendChild(bar);
+      } else if (stats && !stats.available) {
+        const warn = el('div', 'yourstats');
+        warn.innerHTML = '<span>This browser is blocking local storage, so times will not be kept.</span>';
+        this.inner.appendChild(warn);
+      }
 
       const cats = [...new Set(catalogue.map(c => c.cat))];
       cats.forEach(cat => {
@@ -111,6 +131,14 @@ export function createMenu(catalogue, onPick) {
               `<span class="crew ${p.meta.crew}">${p.meta.crew === 'rio' ? 'RIO' : 'Pilot'}</span>` +
               `<b>${p.meta.name}</b>` +
               `<span class="n">${p.steps.length} steps</span>`;
+            const r = stats && stats.of(p.meta.id);
+            const note = el('span', 'stat');
+            note.textContent = !r ? 'never run'
+              : r.best != null ? 'best ' + mmss(r.best) + '  \u00b7  ' + r.runs + (r.runs === 1 ? ' run' : ' runs')
+              : r.completed ? 'finished  \u00b7  ' + r.runs + (r.runs === 1 ? ' run' : ' runs')
+              : 'no clean run yet  \u00b7  ' + r.runs + (r.runs === 1 ? ' try' : ' tries');
+            if (r) note.classList.add('on');
+            card.appendChild(note);
             card.onclick = () => { this.close(); onPick(ac, p); };
             sec.appendChild(card);
           });

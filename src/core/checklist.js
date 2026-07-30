@@ -171,13 +171,20 @@ export function createChecklist(sim, ac) {
         this.procedure.meta.crew === 'rio' ? 'Aligned' : 'Ready to Taxi';
       $('#doneSub').textContent = this.procedure.meta.name + ' · ' +
         this.steps().length + ' of ' + this.steps().length + ' steps';
+      const res = this.onFinish
+        ? this.onFinish({ seconds: secs, skips: this.skips, faults: S.faults.length })
+        : null;
       const rows = [
-        ['Aircraft time', mmss, false],
+        ['Aircraft time', mmss + (res && res.isBest ? '   NEW BEST' : ''), false],
         ['Steps skipped', this.skips === 0 ? 'none' : String(this.skips), this.skips > 0],
         ['Faults logged', S.faults.length === 0 ? 'none'
           : S.faults.map(f => '<small>' + f + '</small>').join(''), S.faults.length > 0],
         ['Alignment', S.ins.mode ? S.ins.mode.toUpperCase() : '—', false],
       ];
+      if (res && res.best != null) {
+        const b = Math.floor(res.best / 60) + ':' + String(Math.floor(res.best % 60)).padStart(2, '0');
+        rows.splice(1, 0, ['Best clean run', b, false]);
+      }
       $('#doneStats').innerHTML = rows.map(([k, v, w]) =>
         `<div><dt>${k}</dt><dd class="${w ? 'warn' : ''}">${v}</dd></div>`).join('');
       $('#done').classList.remove('gone');

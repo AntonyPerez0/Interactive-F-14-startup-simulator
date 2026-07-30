@@ -73,9 +73,11 @@ export function createSim(aircraft) {
     tick(dtReal) {
       const S = this.S;
       if (!S || !S.running) return;
-      const dt = Math.min(0.25, dtReal) * S.rate;
+      const real = Math.min(0.25, dtReal);
+      const dt = real * S.rate;
       S.t += dt;
-      aircraft.tick(this, dt);
+      // real seconds passed too, for anything that should not be sped up
+      aircraft.tick(this, dt, real);
     },
   };
 

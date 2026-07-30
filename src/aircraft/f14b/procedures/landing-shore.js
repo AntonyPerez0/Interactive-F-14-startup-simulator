@@ -2,7 +2,7 @@
    Steps that are flown rather than switched carry ack:true; you confirm those
    by tapping the line, since the trainer has no flight model to watch. */
 
-import { setAirborne } from '../systems.js';
+import { setAirborne, nextOf } from '../systems.js';
 
 /* This one starts in the air, not cold and dark. */
 export const setup = sim => setAirborne(sim);
@@ -32,7 +32,7 @@ export const steps = [
 /* ---------------- 2. the break ---------------- */
 { g:'2 · The Break', t:'At the break — <b>speed brake out</b>, throttles <b>IDLE</b>',
   note:'Then a 45–60° bank level turn.',
-  tgt:'speedBrake', done:s=>s.sw.speedBrake==='out'&&s.sw.throttleL==='idle'&&s.sw.throttleR==='idle' },
+  tgt:s=>nextOf(s,[['speedBrake','out'],['throttleL','idle'],['throttleR','idle']]), done:s=>s.sw.speedBrake==='out'&&s.sw.throttleL==='idle'&&s.sw.throttleR==='idle' },
 { g:'2 · The Break', t:'At <b>280 kt</b> — wing sweep <b>AUTO</b>, confirm <b>20°</b>',
   note:'Handle down into the detent. The wings drive forward on their own.',
   tgt:'wingSweep', view:'consoles', done:s=>s.sw.wingSweep==='detent'&&s.sweep<=20.5 },

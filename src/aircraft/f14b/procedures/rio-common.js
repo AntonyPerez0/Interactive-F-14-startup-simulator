@@ -1,3 +1,4 @@
+import { nextOf } from '../systems.js';
 /* Blocks shared by both RIO alignment procedures.
    Sections 4 and 5 of Part 4 differ only in the middle: ashore you type the
    present position into the CAP, on the boat CAINS hands it across. */
@@ -26,7 +27,7 @@ export const RIO_POST = [
  tgt:'rioOxygen', view:'rioL', done:s=>s.sw.rioOxygen==='on'},
 {g:'4 · RIO Post-Align', t:'RIO ejection seat — <b>ARMED</b>, canopy <b>CLOSED</b>',
  note:'LSHIFT+E and LCTRL+C in the sim.',
- tgt:'ejectSeat', done:s=>s.sw.ejectSeat==='armed'&&s.sw.canopy==='closed'},
+ tgt:s=>nextOf(s,[['ejectSeat','armed'],['canopy','closed']]), done:s=>s.sw.ejectSeat==='armed'&&s.sw.canopy==='closed'},
 {g:'4 · RIO Post-Align', t:'V/UHF radio function selector — <b>T/R +G</b>',
  tgt:'vuhfFunc', view:'rioL', done:s=>s.sw.vuhfFunc==='trg'},
 {g:'4 · RIO Post-Align', t:'RIO TACAN function selector — <b>T/R</b>',
@@ -46,7 +47,7 @@ export const RIO_POST = [
  tgt:'kb:datalink', done:s=>s.kb.open&&s.kb.page===1},
 {g:'4 · RIO Post-Align', t:'Datalink power — <b>ON</b> (Link 4A), mode — <b>TAC</b>',
  note:'ON is the AWACS and carrier link, up to 8 tracks. AUX is Link 4C, F-14 to F-14 only, 4 tracks plus your wingmen. Datalink contacts fill the bottom half of the symbol; your own radar fills the top.',
- tgt:'dlPower', view:'rioR', done:s=>s.sw.dlPower==='on'&&s.sw.dlModeSw==='tac'},
+ tgt:s=>nextOf(s,[['dlPower','on'],['dlModeSw','tac']]), ctx:['dlModeSw'], view:'rioR', done:s=>s.sw.dlPower==='on'&&s.sw.dlModeSw==='tac'},
 {g:'4 · RIO Post-Align', t:'Datalink reply — <b>NORM</b>, and set your <b>ADDRESS</b>',
  note:'In CANC you send nothing back. Every jet in the flight needs its own address — 01 lead, 02 wing, 03 element lead, 04 his wing.',
  tgt:'dlReply', view:'rioR', done:s=>s.sw.dlReply==='norm'},
