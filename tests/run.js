@@ -591,6 +591,18 @@ head('Saved progress');
   const perTwentyMin = Math.ceil(20 * 60 / beat);
   ok('a 20 minute visit stays cheap', perTwentyMin <= 30, perTwentyMin + ' writes');
 
+  /* Without _routes.json, Pages runs EVERY request through the Functions
+     runtime — every image and script counts against the quota. This one file
+     is the difference between ~44 invocations per page load and 1. */
+  const routes = JSON.parse(readFileSync(new URL('../_routes.json', import.meta.url), 'utf8'));
+  ok('a routes file exists', routes.version === 1);
+  ok('it only routes the API through Functions',
+     Array.isArray(routes.include) && routes.include.every(r => r.startsWith('/api')),
+     routes.include.join(', '));
+  ok('it does not catch everything',
+     !routes.include.includes('/*') && !routes.include.includes('/'),
+     'include: ' + routes.include.join(', '));
+
   // the counts
   ok('the endpoint can report totals', /stats/.test(fn) && /MONTH_MS/.test(fn));
   ok('the hot path only does one count',

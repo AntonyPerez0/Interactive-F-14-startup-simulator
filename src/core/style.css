@@ -486,7 +486,11 @@ body.edit #editbar{display:flex}
 .proc .stat{font-family:var(--data);font-size:10px;letter-spacing:.08em;color:#3f4f53;
   min-width:96px;text-align:right}
 .proc .stat.on{color:var(--phos)}
-.chip.presence{color:var(--phos);border-color:var(--phos-dim)}
+/* Fixed width and tabular digits, so the number changing cannot reflow the top
+   bar or make the chip look like it is blinking. */
+.chip.presence{color:var(--phos);border-color:var(--phos-dim);
+  min-width:74px;text-align:center;font-variant-numeric:tabular-nums;
+  animation:none!important}
 @media (max-width:820px){
   .proc{flex-wrap:wrap;row-gap:5px}
   .proc b{flex:1 1 100%;order:2}

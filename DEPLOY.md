@@ -22,10 +22,21 @@ look for something that does the same job — the shape of the steps does not ch
 You need three things:
 
 1. **A GitHub account with a repository** for this site.
-2. **A Cloudflare account.** You have this.
+2. **A Cloudflare account.**
 3. **The zip of the site**, unzipped on your computer. Inside is a folder called
    `trainer`. **Open it.** The files you will upload are the ones *inside* that
    folder, not the folder itself.
+
+And one optional fourth:
+
+4. **A domain name, if you want one** — `f14trainer.com` rather than
+   `something.pages.dev`. You have to have bought it already; Part 3 points an
+   existing domain at the site, it does not sell you one.
+
+   **You do not need this.** Parts 1, 2 and 4 give you a complete working site on
+   a free `.pages.dev` address. Part 3 is the only part that needs a domain, it
+   is entirely optional, and you can come back and do it months later without
+   redoing anything.
 
 Inside `trainer` you should see roughly this:
 
@@ -74,11 +85,14 @@ slow part.
 **1.6** Check the result. Your repository page should now list, among others:
 
 ```
-assets     functions     src     tools     index.html
+assets     functions     src     tools     index.html     _routes.json
 ```
 
-> **The one that matters is `functions`.** That is the visitor counter. If it is
-> missing, you dragged the wrong level — go back to 1.4.
+> **Two that matter.** `functions` is the visitor counter. `_routes.json` tells
+> Cloudflare that only `/api/*` should go through it — without that file every
+> image and script on the site counts against your daily quota, and you will run
+> out in an afternoon. If either is missing, you dragged the wrong level: go back
+> to 1.4.
 
 ---
 
@@ -135,7 +149,18 @@ part is over.
 
 # Part 3 — Use your own domain
 
-Skip this whole part if `.pages.dev` is fine for now. You can come back later.
+**Optional, and it needs a domain you have already bought.**
+
+If you do not have one, skip straight to Part 4. The `.pages.dev` address from
+Part 2 is a real, permanent, HTTPS address — nothing is missing without this.
+
+If you want to buy one: **Cloudflare Registrar** sells at cost with no markup and
+no cheap-first-year trick, and buying there means the domain is already on your
+account, which makes the DNS step below automatic. A `.com` is roughly 10 to 12
+US dollars a year. Anywhere else works too, it is just one extra step.
+
+Adding a domain later changes nothing else — the `.pages.dev` address keeps
+working alongside it.
 
 ### You are on: **dash.cloudflare.com**
 

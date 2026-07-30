@@ -33,7 +33,7 @@ export function createPresence(url) {
 
   const id = visitorId();
   const counts = { online: null, month: null, total: null };
-  let chip = null, timer = null, failures = 0, onCounts = null;
+  let chip = null, timer = null, failures = 0, onCounts = null, shown = false;
 
   const show = n => {
     if (!chip) {
@@ -44,6 +44,7 @@ export function createPresence(url) {
     }
     chip.textContent = n === 1 ? '1 here' : n + ' here';
     chip.style.display = '';
+    shown = true;
   };
 
   const beat = async (wantStats = false) => {
@@ -60,8 +61,13 @@ export function createPresence(url) {
       Object.assign(counts, data);
       if (typeof data.total === 'number' && onCounts) onCounts(counts);
     } catch (e) {
-      // give up quietly rather than hammer an endpoint that is not there
-      if (++failures >= 3) { stop(); if (chip) chip.style.display = 'none'; }
+      /* Give up quietly if the endpoint was never there. But once the chip has
+         appeared, leave it alone — a transient failure showing a slightly stale
+         number is better than it blinking out and back. */
+      if (++failures >= 3) {
+        stop();
+        if (chip && !shown) chip.style.display = 'none';
+      }
     }
   };
 
