@@ -91,7 +91,7 @@ function startProcedure(procedure) {
   const first = ac.views.find(v => v.id === procedure.meta.view) || ac.views.find(v => v.crew === crew);
   V.view = null;
   V.setView(first.id);
-  V.fit();
+  V.reset();
   setRail(false);
   toast(procedure.meta.name, 'radio');
 }
@@ -223,7 +223,7 @@ stage.addEventListener('touchend', () => { pinch = null; });
 $('#zin').onclick  = () => V.zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 1.25);
 $('#zout').onclick = () => V.zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 0.8);
 $('#zfit').onclick = () => V.fit();
-window.addEventListener('resize', () => V.fit());
+window.addEventListener('resize', () => V.reset());
 
 /* ---------------- chips and buttons ---------------- */
 $('#timechip').onclick = () => {
@@ -362,7 +362,7 @@ window.addEventListener('keydown', e => {
 
 /* ---------------- frame loop ---------------- */
 K.build();
-V.fit();
+V.reset();
 menu.mount();
 menu.open();
 let last = performance.now();

@@ -20,6 +20,8 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+/* dvh tracks the browser chrome as it hides and shows; % does not */
+@supports (height:100dvh){ html,body{height:100dvh} }
 body{
   background:var(--ink);color:var(--txt);
   font-family:var(--stencil);
@@ -175,7 +177,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .btn.sm{padding:6px 8px;font-size:10px}
 
 /* ---------- engine strip ---------- */
-#strip{
+#strip{padding-bottom:env(safe-area-inset-bottom);
   flex:0 0 auto;display:flex;gap:0;background:#0a0f11;border-top:1px solid var(--seam);
   overflow-x:auto;
 }

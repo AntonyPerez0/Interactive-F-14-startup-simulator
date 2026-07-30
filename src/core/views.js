@@ -159,6 +159,8 @@ export function createViews(sim, ac) {
     },
 
     /* ---------------- transform ---------------- */
+    /* Show the whole frame. Letterboxes on a narrow screen, which is what the
+       FIT button is for. */
     fit() {
       const st = $('#stage');
       const z = Math.min(st.clientWidth / 1920, st.clientHeight / 1080);
@@ -166,6 +168,25 @@ export function createViews(sim, ac) {
       this.panX = (st.clientWidth - 1920 * z) / 2;
       this.panY = (st.clientHeight - 1080 * z) / 2;
       this.apply();
+    },
+
+    /* Fill the stage, cropping the sides. A 16:9 cockpit in a portrait phone
+       letterboxes to about 40% of the height and nothing is legible, so this is
+       the sensible default there — pan and pinch still work. */
+    fill() {
+      const st = $('#stage');
+      const z = Math.max(st.clientWidth / 1920, st.clientHeight / 1080);
+      this.zoom = z;
+      this.panX = (st.clientWidth - 1920 * z) / 2;
+      this.panY = (st.clientHeight - 1080 * z) / 2;
+      this.apply();
+    },
+
+    /* Whichever suits the shape of the screen. */
+    reset() {
+      const st = $('#stage');
+      const portrait = st.clientHeight / Math.max(1, st.clientWidth) > 1.15;
+      portrait ? this.fill() : this.fit();
     },
     setZoom(z, cx, cy) {
       z = Math.max(0.25, Math.min(5, z));

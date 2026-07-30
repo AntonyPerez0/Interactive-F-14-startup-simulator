@@ -871,6 +871,29 @@ head('Knob detents');
      seen.join() === 'off,stby,hold,act,rec,rpt', seen.join(' '));
 }
 
+/* -------------------------------------------------- default framing */
+head('Default framing');
+{
+  const frame = (w, h) => {
+    const contain = Math.min(w / 1920, h / 1080), cover = Math.max(w / 1920, h / 1080);
+    const portrait = h / Math.max(1, w) > 1.15;
+    const z = portrait ? cover : contain;
+    return { z, portrait, bands: Math.round(h - 1080 * z) };
+  };
+  const phone = frame(360, 510), desktop = frame(1400, 790), landscape = frame(780, 300);
+
+  ok('a portrait phone fills the screen', phone.portrait && phone.bands <= 0,
+     phone.bands + 'px of letterbox');
+  ok('and the cockpit is legible there', 1080 * phone.z >= 480,
+     Math.round(1920 * phone.z) + 'x' + Math.round(1080 * phone.z));
+  ok('desktop still shows the whole frame', !desktop.portrait && desktop.bands < 8);
+  ok('a landscape phone shows the whole frame too', !landscape.portrait);
+
+  const css = (await import('node:fs')).readFileSync(new URL('../src/core/style.css', import.meta.url), 'utf8');
+  ok('layout uses the dynamic viewport height', /height:100dvh/.test(css));
+  ok('the strip clears the home indicator', /env\(safe-area-inset-bottom\)/.test(css));
+}
+
 /* ------------------------------------------------ Show me framing */
 head('Show me framing');
 {
