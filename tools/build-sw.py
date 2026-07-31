@@ -9,7 +9,7 @@ miss new files or try to fetch ones that have gone:
 import hashlib, json, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-files = ['./index.html', './manifest.webmanifest']
+files = ['./index.html', './manifest.webmanifest', './favicon.ico', './favicon.svg']
 for pat in ('src/**/*.js', 'src/**/*.css', 'assets/**/*.jpg', 'assets/**/*.png'):
     files += ['./' + str(p.relative_to(ROOT)) for p in sorted(ROOT.glob(pat))]
 
