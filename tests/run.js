@@ -1,6 +1,6 @@
 /* Runs headless. No DOM — the sim core and the aircraft modules must
    stay free of browser globals so this keeps working. */
-import { aircraft } from '../src/aircraft/registry.js';
+import { aircraft, catalogue as AC_CATALOGUE } from '../src/aircraft/registry.js';
 import { createSim } from '../src/core/sim.js';
 
 let failures = 0;
@@ -1162,6 +1162,17 @@ head('Knob detents');
      withAngles.every(c => c.angles.every((a, i) => i === 0 || a > c.angles[i - 1])));
   ok('declared angles stay on the dial face',
      withAngles.every(c => c.angles.every(a => a > -180 && a < 180)));
+
+  // era classifications the reviewers corrected
+  {
+    const era = name => AC_CATALOGUE.find(c => c.name.includes(name)).cat;
+    ok('the Phantom is Cold War', era('F-4E') === 'Cold War jets', era('F-4E'));
+    ok('the Mirage F1 is Cold War', era('Mirage F1') === 'Cold War jets', era('Mirage F1'));
+    ok('the Mirage 2000C stays Modern', era('Mirage 2000C') === 'Modern jets');
+    ok('the two eras are balanced now',
+       AC_CATALOGUE.filter(c => c.cat === 'Modern jets').length === 9 &&
+       AC_CATALOGUE.filter(c => c.cat === 'Cold War jets').length === 9);
+  }
 
   // the squadron mark
   {

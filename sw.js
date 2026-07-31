@@ -6,7 +6,7 @@
 
    Version is a hash of file contents, so any edit invalidates the old cache.
    Regenerate with: python3 tools/build-sw.py */
-const CACHE = 'dcs-trainer-ea2ae3e7';
+const CACHE = 'dcs-trainer-ecc19bc6';
 const SHELL = [
   "./index.html",
   "./manifest.webmanifest",

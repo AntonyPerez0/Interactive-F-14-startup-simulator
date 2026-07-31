@@ -22,8 +22,8 @@ export const catalogue = [
   { id:'av8b',  cat:'Modern jets', name:'AV-8B N/A Harrier II', maker:'RAZBAM' },
   { id:'m2000', cat:'Modern jets', name:'Mirage 2000C',         maker:'RAZBAM' },
   { id:'jf17',  cat:'Modern jets', name:'JF-17 Thunder',        maker:'Deka Ironwork' },
-  { id:'mirf1', cat:'Modern jets', name:'Mirage F1',            maker:'Aerges' },
-  { id:'f4e',   cat:'Modern jets', name:'F-4E Phantom II',      maker:'Heatblur' },
+  { id:'mirf1', cat:'Cold War jets', name:'Mirage F1',          maker:'Aerges' },
+  { id:'f4e',   cat:'Cold War jets', name:'F-4E Phantom II',      maker:'Heatblur' },
   { id:'aj37',  cat:'Modern jets', name:'AJS-37 Viggen',        maker:'Heatblur' },
 
   /* ---------------- cold war jets ---------------- */
