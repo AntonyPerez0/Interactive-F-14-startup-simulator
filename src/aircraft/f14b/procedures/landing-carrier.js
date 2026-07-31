@@ -13,7 +13,8 @@ import { setAirborne, nextOf } from '../systems.js';
 export const setup = sim => setAirborne(sim);
 
 export const meta = { id:'landing-carrier', crew:'pilot', phase:'landing',
-                      name:'Landing · carrier Case I', view:'front' };
+                      name:'Landing · carrier Case I', view:'front' ,
+                      ending:{ title:'Trapped', sub:'Wire caught, hook up, folded and clear.' } };
 
 export const steps = [
 /* ============ 1. three miles behind the boat: 800 ft, 350 kt ============ */
@@ -37,17 +38,18 @@ export const steps = [
 { g:'1 · Three Miles', t:'ANTI-SKID / SPOILER BK — <b>OFF</b> (middle)',
   note:'Off for the boat. BOTH is a runway setting.',
   tgt:'antiSkid', view:'front', done:s=>s.sw.antiSkid==='off' },
-{ g:'1 · Three Miles', t:'Landing lights — <b>ON</b>',
-  tgt:'landingLights', view:'consoles', done:s=>s.sw.landingLights==='on' },
+{ g:'1 · Configure', t:'Landing lights — <b>OFF</b>',
+  note:'Lights stay off on the boat. The deck is lit, and the LSO needs to see you rather than be dazzled. Lights showing on deck mean a radio failure.',
+  tgt:'landingLights', view:'consoles', done:s=>s.sw.landingLights==='off' },
 { g:'1 · Three Miles', t:'HOOK BYPASS — <b>CARRIER</b> (aft)',
   tgt:'hookBypass', view:'consoles', done:s=>s.sw.hookBypass==='carrier' },
 { g:'1 · Three Miles', t:'Hook — <b>DOWN</b>',
   note:'Unless you are doing touch and goes.',
   tgt:'hookHandle', view:'front', done:s=>s.sw.hookHandle==='down' },
-{ g:'1 · Three Miles', t:'Wings — <b>MANUAL</b>, swept fully <b>aft to 68°</b>',
-  note:'Not just for looks. Swept back you get far more drag for the same AoA, and drag is what you want in the break. The thumb switch is on the stick, so it is in the tray.',
-  tgt:'wingSweep', ctx:['sweepThumb'], view:'consoles',
-  done:s=>s.sw.wingSweep!=='detent'&&s.sweep>=67.5 },
+{ g:'1 · Three Miles', t:'Wings back to <b>68°</b> on the <b>thumb switch</b>',
+  note:'Sweeping is to shed lift, not to add drag — at 350 kt swept wings actually cut drag and help you accelerate. Less lift means your trim ends up much closer to the landing condition than entering the break wings forward. Once you are in the break let them come back out as you slow through the turn. The thumb switch is on the throttle, handle stowed and CADC working; the emergency handle is only for a failure.',
+  tgt:'sweepThumb', ctx:['wingSweep'], view:'consoles',
+  done:s=>s.sw.wingSweep==='detent'&&s.sweep>=67.5 },
 { g:'1 · Three Miles', t:'<b>Trim</b> for level flight — it wants to nose down as the wings go back',
   note:'The trim switch is your best friend. If you cannot get all of this done before three miles, do not proceed — go round and set up again.',
   ack:true, done:()=>false },

@@ -61,13 +61,14 @@ export function initState(S, sw) {
               hydPress:false, canopy:false, masterCaution:false },
     jester:{ startupRequested:false, startupT:0, commCheckPending:false,
              commCheckDone:false, canopyT:0, readyCalled:false },
-    ins:{ mode:null, t:0, complete:false },
+    ins:{ mode:null, t:0, complete:false, handset:false },
     radalt:{ t:0, bitDone:false, value:0 },
     cadcReset:false, insHungWarned:false, dlcActive:false, rioSeat:false, autoT:0, autoI:0,
     rio:{ wcsT:0, wcsUp:false, msg:'ownac', cleared:false,
           capField:null, capSign:null, capDigits:'',
           capLine:'', stbyLight:false, readyLight:false,
-          entered:{ lat:false, lon:false, alt:false, mag:false } },
+          entered:{ lat:false, lon:false, alt:false, mag:false,
+                    hdg:false, spd:false } },
     dl:{ mode:false, host:false },
   });
 }
@@ -113,7 +114,7 @@ export function setAirborne(sim, opts = {}) {
   S.hydFlt = 3000; S.hydComb = 3000;
   S.sweep = 20;
   S.fuel = opts.fuel ?? 5200;
-  S.ins = { mode:'fine', t:9999, complete:true };
+  S.ins = { mode:'fine', t:9999, complete:true, handset:false };
   S.radalt = { t:9999, bitDone:true, value:0 };
   S.rio.wcsT = 99; S.rio.wcsUp = true;
   Object.keys(S.caution).forEach(k => { S.caution[k] = false; });
@@ -151,7 +152,7 @@ export function bvrSetup(sim) {
       { id:3, name:'Bandit 3', rng:64, az:  5, alt:33, iff:'unknown', tracked:false, prio:null, noAttack:false },
       { id:4, name:'Trailer',  rng:72, az: 17, alt:28, iff:'unknown', tracked:false, prio:null, noAttack:false },
     ],
-    hooked:null, shots:[], fired:0, sttLock:null, closure:420,
+    hooked:null, shots:[], fired:0, sttLock:null, closure:420, tidBlind:false,
   };
   return S;
 }
@@ -178,7 +179,7 @@ export function bvrTick(sim, dt) {
   } else if (S.sw.swCool !== 'on') { B.coolT = 0; B.cooled = false; }
 
   const mode = S.sw.radarMode;
-  const searching = ['pdsrch','rws','twsman','twsauto'].includes(mode);
+  const searching = ['pdsrch','pulsesrch','rws','twsman','twsauto'].includes(mode);
   const tws = mode === 'twsman' || mode === 'twsauto';
   const az = +S.sw.azScan, bars = +S.sw.elBars;
   // a narrow, shallow scan will not hold a spread formation
@@ -194,6 +195,10 @@ export function bvrTick(sim, dt) {
 
   /* A single target track holds one contact and drops the rest of the picture.
      Locks whatever is hooked, or the nearest one if you just slewed and locked. */
+  /* PD Search and Pulse Search put their returns on the DDD, which is a back
+     seat display. Tracks exist, the TID simply will not draw them. */
+  B.tidBlind = mode === 'pdsrch' || mode === 'pulsesrch';
+
   if (mode === 'pdstt' || mode === 'pulsestt') {
     if (!B.sttLock) {
       const pick = B.hooked
@@ -470,7 +475,8 @@ export function cap(sim, id) {
     }
     R.capLine = R.capField
       ? (NAME[R.capField]+'  '+(R.capSign||'--')+'  '+(R.capDigits||'_____'))
-      : (Object.values(R.entered).every(Boolean) ? 'PRESENT POSITION ENTERED' : 'CAP READY');
+      : (['lat','lon','alt','mag'].every(k => R.entered[k])
+            ? 'PRESENT POSITION ENTERED' : 'CAP READY');   // hdg/spd are handset only
   }
 
 export function radio(sim, act) {
@@ -510,8 +516,8 @@ export function radio(sim, act) {
         sim.emit('Jester: back to search.','radio');
         break;
       case 'jCool':
-        sim.set('liquidCool','awg9');
-        sim.emit('Jester: liquid cooling is on.','radio');
+        sim.set('liquidCool','awg9aim54');
+        sim.emit('Jester: liquid cooling forward, AWG-9 and AIM-54.','radio');
         break;
       case 'dlMode': S.dl.mode=true; sim.emit('Datalink mode — Tactical Datalink System.','radio'); break;
       case 'dlHost': S.dl.host=true; sim.emit('Datalink host — CVN-74 Stennis.','radio'); break;
@@ -597,11 +603,17 @@ export function tick(sim, dt, dtReal = dt) {
     S.hydComb += (cmbT - S.hydComb) * 1.1 * dt;
 
     // wing sweep
-    // Out of the detent the wing sweep is in MANUAL and follows the thumb switch;
-    // in the detent it is AUTO and sits at 20 for the approach.
+    /* Manual sweep is the thumb switch on the throttle, and it works with the
+       emergency handle stowed and the CADC running — that is the normal way to
+       do it. The handle itself is for a failure of the system: forward of the
+       detent it commands oversweep mechanically, and the thumb switch is then
+       out of the loop.
+
+       Stowed and thumb forward, the CADC schedules the wings itself. */
+    const cadc = S.power && !S.caution.cadc;
     const swT = S.sw.wingSweep === 'oversweep' ? 68
-              : S.sw.wingSweep === 'detent'    ? 20
-              : (S.sw.sweepThumb === 'aft' ? 68 : 20);
+              : S.sw.wingSweep !== 'detent'    ? 68          // handle pulled: emergency oversweep
+              : (cadc && S.sw.sweepThumb === 'aft' ? 68 : 20);
     S.sweep += Math.sign(swT - S.sweep) * Math.min(Math.abs(swT-S.sweep), 7*dt);
 
     // fuel burn
@@ -635,7 +647,9 @@ export function tick(sim, dt, dtReal = dt) {
         sim.emit((want==='cva'?'CVA':'GND ALIGN')+' — alignment running.','radio');
       }
     }
-    if(S.ins.mode && !S.ins.complete){
+    // a handset alignment sits there doing nothing until it has been fed data
+    const handsetWaiting = S.ins.handset && !S.ins.handsetArmed;
+    if(S.ins.mode && !S.ins.complete && !handsetWaiting){
       if(insReady && S.sw.parkBrake==='set'){
         S.ins.t += dt;
         S.insHungWarned=false;
@@ -652,8 +666,10 @@ export function tick(sim, dt, dtReal = dt) {
 
     if (S.bvr) bvrTick(sim, dt);
 
-    // the scripted front-seater
-    if(S.rioSeat){
+    /* The scripted front-seater only belongs to the alignment drills. It was
+       running in every RIO procedure, so a combat or shutdown drill had someone
+       cold-starting the jet underneath you. */
+    if(S.frontSeater){
       S.autoT += dt;
       while(S.autoI < AUTOPILOT.length && S.autoT >= AUTOPILOT[S.autoI][0]){
         const [,say,act]=AUTOPILOT[S.autoI++];
@@ -663,7 +679,7 @@ export function tick(sim, dt, dtReal = dt) {
 
     // WCS / TID / DDD power-up. Needs cooling: both engines, bleed air, liquid cooling.
     const R=S.rio;
-    const wcsOk = S.power && S.sw.wcsMode!=='off' && S.sw.liquidCool!=='off' &&
+    const wcsOk = S.power && S.sw.wcsMode!=='off' &&
                   S.sw.airSource==='both' && S.eng.L.n2>55 && S.eng.R.n2>55;
     if(wcsOk && !R.wcsUp){
       R.wcsT += dt;
@@ -701,13 +717,47 @@ export function tick(sim, dt, dtReal = dt) {
        flashing when the parking brake is not set, READY alone once the second
        marker is passed, both out when the system is happy. */
     const A = S.ins, brakeSet = S.sw.parkBrake === 'set', flash = (S.t % 1) < 0.5;
+    /* A carrier alignment is fed by the datalink. Turn it off, put it in the
+       wrong mode, or change the frequency and CAINS is gone: the alignment falls
+       back to handset and starts from the beginning. Flashing HS says so. */
+    if (A.mode === 'cva') {
+      /* Fed over CAINS/WAYPT on the ship's own frequency. Power off, wrong
+         mode, or dialling the wheels somewhere else all lose it. */
+      const linkOk = S.sw.dlPower === 'on' && S.sw.dlModeSw === 'cains' &&
+                     S.sw.dlFreq === '209';
+      /* Only a loss counts. Selecting CVA before the datalink is set up is just
+         the normal order of the checklist, not a failure. */
+      if (!linkOk && !A.handset && A.t > 5) {
+        A.handset = true; A.handsetArmed = false;
+        A.t = 0; A.complete = false;
+        sim.fault('CAINS lost — alignment fell back to handset and restarted');
+        sim.emit('Lost the datalink. Handset alignment — HS flashing.','bad');
+      } else if (linkOk && A.handset && A.t < 1) {
+        A.handset = false; A.handsetArmed = false;
+        sim.emit('Datalink back. CAINS alignment restarted.','radio');
+      }
+
+      /* Two ways out of handset. Either get CAINS back, which is the branch
+         above, or feed it a present position, heading and speed by hand and let
+         it align roughly on its own. Once all three are in, HS stops flashing
+         and stays lit while it runs. */
+      if (A.handset && !A.handsetArmed) {
+        const E = S.rio.entered;
+        if (E.lat && E.lon && E.hdg && E.spd) {
+          A.handsetArmed = true;
+          A.t = 0;
+          sim.emit('Handset data in. HS steady, rough alignment running.','radio');
+        }
+      }
+    }
+
     let stby = false, ready = false;
     if (S.rio.wcsUp && A.mode) {
       const weapons = insWeaponsReady(S);
       if (!brakeSet) {
         if (!weapons) { stby = flash; ready = A.t < 1 ? flash : false; }
         else          { stby = false; ready = flash; }
-      } else if (A.t < 45)   { stby = true;  ready = true; }
+      } else if (A.t < 48)   { stby = true;  ready = true; }   // 0.8 min
       else if (!weapons)     { stby = true;  ready = false; }
       else if (!A.complete)  { stby = false; ready = true; }
       else                   { stby = false; ready = S.sw.navMode !== 'ins'; }
@@ -726,7 +776,21 @@ export function tick(sim, dt, dtReal = dt) {
     // RIO advisories. Both are expected while the INS is still degraded before
     // alignment and should be ignored until it completes.
     C.navComp  = P && S.rio.wcsUp && S.sw.navMode === 'ins' && !S.ins.complete;
-    C.awg9Cond = P && S.rio.wcsUp && S.sw.liquidCool === 'off';
+    /* Cooling does not stop the AWG-9 working — it stops it cooking. Wrong
+       position and the odds of an overheat casualty climb the longer it runs.
+       AWG-9/AIM-54 (forward) is required whenever Phoenix are aboard. */
+    const coolWanted = (S.bvr && S.bvr.weapon === 'ph') ? 'awg9aim54' : null;
+    const coolBad = S.sw.liquidCool === 'off' ||
+                    (coolWanted && S.sw.liquidCool !== coolWanted);
+    if (S.rio.wcsUp && coolBad) {
+      S.rio.hotT = (S.rio.hotT || 0) + dt;
+      if (S.rio.hotT > 120 && !S.rio.cooked) {
+        S.rio.cooked = true;
+        sim.fault('Overheat casualty — the AWG-9 ran without the right cooling');
+        sim.emit('Something in the nose just cooked. Liquid cooling was wrong.','bad');
+      }
+    } else { S.rio.hotT = 0; }
+    C.awg9Cond = P && S.rio.wcsUp && coolBad;
     C.msgOwnAC  = S.rio.wcsUp && S.rio.msg === 'ownac';
     C.msgMagVar = S.rio.wcsUp && S.rio.msg === 'magvar';
     C.masterCaution = C.lGen||C.rGen||C.oilPress||C.hydPress||C.canopy;

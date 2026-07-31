@@ -32,6 +32,7 @@ const C  = id => AC.controls.find(c => c.id === id);
 /* ---------------------------------------------------------------- helpers */
 function harness(procedure) {
   const sim = createSim(AC);
+  if (procedure && procedure.setup) procedure.setup(sim);   // as the app does
   const S = sim.S;
   const done = procedure.steps.map(() => false);
   let ackT = 0, lastAck = -1;
@@ -128,7 +129,7 @@ for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio' && p.meta.pha
   ok('front-seater got both engines up', S.eng.L.n2 > 60 && S.eng.R.n2 > 60);
   ok('bleed air selected for the WCS', S.sw.airSource === 'both');
 
-  to('liquidCool','awg9'); to('wcsMode','stby'); run(45);
+  to('liquidCool','awg9aim54'); to('wcsMode','stby'); run(45);
   ok('TID and DDD up after warm-up', S.rio.wcsUp);
 
   if (proc.meta.variant === 'carrier') {
@@ -144,7 +145,7 @@ for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio' && p.meta.pha
     click('capClear'); click('cap6'); click('capNE'); type('55226'); click('capEnter');
     click('capClear'); click('cap4'); click('capNE'); type('197');   click('capEnter');
     click('msgMagVar'); click('cap8'); click('capNE'); type('17');   click('capEnter');
-    ok('present position accepted', Object.values(S.rio.entered).every(Boolean));
+    ok('present position accepted', ['lat','lon','alt','mag'].every(k => S.rio.entered[k]));
   }
 
   S.rate = 16; run(45); S.rate = 1;
@@ -249,7 +250,7 @@ head('Kneeboard');
   digits(printed['MAGNETIC VARIATION']).split('').forEach(d => sim.click('cap' + d));
   sim.click('capEnter');
   ok('CAP accepts the printed coordinates',
-     Object.values(sim.S.rio.entered).every(Boolean),
+     ['lat','lon','alt','mag'].every(k => sim.S.rio.entered[k]),
      JSON.stringify(sim.S.rio.entered));
 
   // the wheel column must match the frequency column
@@ -329,11 +330,14 @@ head('Systems corrections');
   const h = harness(AC.procedures[1]);
   const { S, run } = h;
   S.rioSeat = true; run(150);
-  h.to('liquidCool','awg9'); h.to('wcsMode','stby');
+  h.to('liquidCool','awg9aim54'); h.to('wcsMode','stby');
   const t0 = S.t; run(40);
   ok('WCS up ~30 s after STANDBY', S.rio.wcsUp && S.t - t0 < 45);
   h.to('navMode','gnd');
-  const at = mins => { while (S.ins.t < mins * 60) sim0(h); };
+  const at = mins => {
+    for (let i = 0; i < 4000 && S.ins.t < mins * 60; i++) sim0(h);
+    if (S.ins.t < mins * 60) ok('alignment reached ' + mins + ' min', false, 'stalled at ' + S.ins.t.toFixed(0) + 's');
+  };
   const sim0 = hh => { hh.sim.S.rate = 8; hh.run(1); hh.sim.S.rate = 1; };
   at(2.0); ok('coarse marker at 2.0 min sits at a third',
               Math.abs(AC.insCaret(S) - 1/3) < 0.02, AC.insCaret(S).toFixed(3));
@@ -347,7 +351,7 @@ head('Systems corrections');
   const h = harness(AC.procedures[1]);
   const { S, run } = h;
   S.rioSeat = true; run(150);
-  h.to('liquidCool','awg9'); h.to('wcsMode','stby'); run(35);
+  h.to('liquidCool','awg9aim54'); h.to('wcsMode','stby'); run(35);
   h.to('navMode','gnd'); run(10);
   ok('STBY and READY both lit for the first 45 s', S.rio.stbyLight && S.rio.readyLight);
   run(50);
@@ -376,14 +380,14 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'landing')) {
   } else {
     to('antiSkid','both');
   }
-  to('landingLights','on');
+  to('landingLights', proc.meta.id === 'landing-carrier' ? 'off' : 'on');
   to('hookBypass', proc.meta.id === 'landing-carrier' ? 'carrier' : 'field');
   if (proc.meta.id === 'landing-carrier') to('hookHandle','down');
   settle();
-  to('wingSweep','oversweep'); to('sweepThumb','aft'); run(12); settle();
+  to('sweepThumb','aft'); run(12); settle();          // handle stays stowed
   to('masterMode','ldg'); settle();
   to('speedBrake','out'); to('throttleL','idle'); to('throttleR','idle'); settle();
-  to('wingSweep','detent'); run(12); settle();
+  to('sweepThumb','fwd'); run(12); settle();          // let them come back out
   to('gearHandle','down'); settle();
   to('flapsLever','down'); settle();
   to('dlc','on'); run(1); settle();
@@ -613,7 +617,7 @@ head('Saved progress');
   ok('the endpoint path matches the Function file', url === '/api/presence');
 
   // the beat has to stay inside the free allowance for a plausible day
-  const beat = +/const BEAT = (\d+)/.exec(cli)[1] / 1000;
+  const beat = +/const BEAT\s*=\s*(\d+)/.exec(cli)[1] / 1000;
   const perTwentyMin = Math.ceil(20 * 60 / beat);
   ok('a 20 minute visit stays cheap', perTwentyMin <= 30, perTwentyMin + ' writes');
 
@@ -712,7 +716,7 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'combat')) {
     ok('shot away with a track held', S.bvr.fired > 0);
   }
   if (proc.meta.id === 'aa-phoenix-tws') {
-    to('liquidCool','awg9'); to('mslPrep','on'); to('weaponSel','ph');
+    to('liquidCool','awg9aim54'); to('mslPrep','on'); to('weaponSel','ph');
     to('modeStp','norm'); to('masterArm','on'); run(130);
     to('weaponSel','ph'); to('modeStp','norm'); to('mslGate','nose');
     to('mslOptions','norm'); to('tgtSize','large');
@@ -852,6 +856,173 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'shutdown')) {
   start.to('throttleR','off'); start.run(2);
   ok('cutting an engine during a start is still a fault',
      start.S.faults.some(f => /shut down/i.test(f)), start.S.faults.join('; ') || 'none');
+}
+
+/* ------------------------------------------- review corrections, round 3 */
+head('Review · round 3');
+{
+  // the front-seater belongs to the alignment drills only
+  const runs = id => {
+    const p = AC.procedures.find(x => x.meta.id === id);
+    const sim = createSim(AC); sim.S.rioSeat = true;
+    if (p.setup) p.setup(sim);
+    const before = JSON.stringify(sim.S.sw);
+    for (let i = 0; i < 20 * 140; i++) sim.tick(0.05);
+    return { on: !!sim.S.frontSeater, moved: JSON.stringify(sim.S.sw) !== before };
+  };
+  ok('the front seat runs his start-up during an alignment', runs('rio-shore').on);
+  ok('but not during a RIO combat drill', !runs('aa-phoenix-tws').on);
+  ok('and not during a RIO shutdown', !runs('shutdown-rio').on);
+  ok('so nothing moves under you there', !runs('shutdown-rio').moved);
+
+  // cooling risks a casualty, it does not gate the system
+  {
+    const sim = createSim(AC); const S = sim.S;
+    S.rioSeat = true; S.frontSeater = true;
+    for (let i = 0; i < 20 * 150; i++) sim.tick(0.05);
+    sim.set('liquidCool', 'off'); sim.set('wcsMode', 'stby');
+    for (let i = 0; i < 20 * 40; i++) sim.tick(0.05);
+    ok('the WCS still comes up without cooling', S.rio.wcsUp);
+    for (let i = 0; i < 20 * 130; i++) sim.tick(0.05);
+    ok('but it cooks itself eventually', S.faults.some(f => /Overheat/i.test(f)),
+       S.faults.find(f => /Overheat/i.test(f)) || 'no fault');
+  }
+
+  // both lights for the first 0.8 min
+  {
+    const sim = createSim(AC); const S = sim.S;
+    S.rioSeat = true; S.frontSeater = true;
+    for (let i = 0; i < 20 * 150; i++) sim.tick(0.05);
+    sim.set('liquidCool','awg9aim54'); sim.set('wcsMode','stby');
+    for (let i = 0; i < 20 * 35; i++) sim.tick(0.05);
+    sim.set('navMode','gnd');
+    for (let i = 0; i < 20 * 20; i++) sim.tick(0.05);
+    ok('both lights inside the first 0.8 min', S.rio.stbyLight && S.rio.readyLight,
+       S.ins.t.toFixed(0) + 's in');
+    for (let i = 0; i < 20 * 40; i++) sim.tick(0.05);
+    ok('STBY alone after that', S.rio.stbyLight && !S.rio.readyLight,
+       S.ins.t.toFixed(0) + 's in');
+  }
+
+  // losing the datalink drops a boat alignment to handset and restarts it
+  {
+    const sim = createSim(AC); const S = sim.S;
+    S.rioSeat = true; S.frontSeater = true;
+    for (let i = 0; i < 20 * 150; i++) sim.tick(0.05);
+    sim.set('dlPower','on'); sim.set('dlModeSw','cains');
+    sim.set('dlFreq','209'); sim.set('navMode','cva');
+    S.rate = 16; for (let i = 0; i < 20 * 60; i++) sim.tick(0.05); S.rate = 1;
+    const was = S.ins.t;
+    ok('a boat alignment gets going', was > 60, was.toFixed(0) + 's');
+    sim.set('dlPower','off'); sim.tick(0.2);
+    ok('losing CAINS drops it to handset', S.ins.handset);
+    ok('and it starts again from zero', S.ins.t < 1, S.ins.t.toFixed(1) + 's');
+    ok('with a fault logged', S.faults.some(f => /CAINS/.test(f)));
+    sim.set('dlPower','on'); sim.tick(0.2);
+    ok('restoring it clears handset', !S.ins.handset);
+
+    // dialling the wheels off the ship loses it too
+    S.rate = 16; for (let i = 0; i < 20 * 30; i++) sim.tick(0.05); S.rate = 1;
+    sim.set('dlFreq', '092'); sim.tick(0.2);
+    ok('changing the frequency also drops CAINS', S.ins.handset && S.ins.t < 1);
+    sim.set('dlFreq', '209'); sim.tick(0.2);
+    ok('back on the ship frequency recovers it', !S.ins.handset);
+
+    // or feed it by hand instead: present position, heading and speed
+    sim.set('dlPower','off');
+    S.rate = 16; for (let i = 0; i < 20 * 20; i++) sim.tick(0.05); S.rate = 1;
+    ok('handset waits until it is given data', S.ins.handset && S.ins.t < 1,
+       S.ins.t.toFixed(1) + 's');
+    S.rio.entered.lat = S.rio.entered.lon = true;
+    S.rio.entered.hdg = S.rio.entered.spd = true;
+    sim.tick(0.2);
+    ok('position, heading and speed arm it', S.ins.handsetArmed);
+    S.rate = 16; for (let i = 0; i < 20 * 30; i++) sim.tick(0.05); S.rate = 1;
+    ok('and then it runs on its own', S.ins.t > 60, S.ins.t.toFixed(0) + 's');
+  }
+
+  // manual sweep is the thumb switch with the handle stowed
+  {
+    const sim = createSim(AC);
+    AC.procedures.find(p => p.meta.id === 'landing-shore').setup(sim);
+    const S = sim.S, run = s => { for (let i = 0; i < s * 20; i++) sim.tick(0.05); };
+    sim.set('sweepThumb','aft'); run(12);
+    ok('thumb switch sweeps with the handle stowed',
+       S.sw.wingSweep === 'detent' && S.sweep >= 67.5, S.sweep.toFixed(0) + '\u00b0');
+    sim.set('sweepThumb','fwd'); run(12);
+    ok('and the CADC takes it back', S.sweep <= 21, S.sweep.toFixed(0) + '\u00b0');
+  }
+
+  // PD and pulse search draw on the DDD, not the TID
+  {
+    const sim = createSim(AC);
+    AC.procedures.find(p => p.meta.id === 'aa-phoenix-stt').setup(sim);
+    const S = sim.S;
+    for (let i = 0; i < 40; i++) sim.tick(0.05);
+    ok('PD Search leaves the TID blank', S.bvr.tidBlind, S.sw.radarMode);
+    sim.click('rm_rws', 1); for (let i = 0; i < 40; i++) sim.tick(0.05);
+    ok('RWS puts them on the TID', !S.bvr.tidBlind);
+  }
+
+  // finishing a shutdown does not leave you ready to taxi
+  {
+    const missing = AC.procedures.filter(p => !p.meta.ending || !p.meta.ending.title);
+    ok('every procedure says what finishing it means', missing.length === 0,
+       missing.map(p => p.meta.id).join(', '));
+    const taxi = AC.procedures.filter(p => p.meta.ending &&
+      /taxi/i.test(p.meta.ending.title) && p.meta.phase !== 'startup');
+    ok('only a start-up ends ready to taxi', taxi.length === 0,
+       taxi.map(p => p.meta.id).join(', '));
+    const titles = AC.procedures.map(p => p.meta.ending.title);
+    ok('the endings are not all the same', new Set(titles).size >= 8,
+       new Set(titles).size + ' distinct');
+    const shut = AC.procedures.find(p => p.meta.id === 'shutdown-pilot');
+    ok('a shutdown ends cold and dark', /cold/i.test(shut.meta.ending.title),
+       shut.meta.ending.title);
+    const trap = AC.procedures.find(p => p.meta.id === 'landing-carrier');
+    ok('a carrier landing ends trapped', /trap/i.test(trap.meta.ending.title),
+       trap.meta.ending.title);
+  }
+
+  // gunsight elevation lead now lives in the cockpit, not the tray
+  {
+    const c = AC.controls.find(x => x.id === 'gunLead');
+    ok('elevation lead is a cockpit control', !c.tray && c.view === 'front',
+       c.x + ',' + c.y);
+    ok('it sits inside the frame', c.x + c.w <= 1920 && c.y + c.h <= 1080);
+    ok('it has a readout above it',
+       AC.gauges.some(g => g.id === 'dgElevLead' && g.y < c.y));
+    const clash = AC.controls.filter(o => o !== c && !o.tray && o.view === 'front' && o.x != null)
+      .filter(o => Math.min(c.x+c.w,o.x+o.w) - Math.max(c.x,o.x) > 2 &&
+                   Math.min(c.y+c.h,o.y+o.h) - Math.max(c.y,o.y) > 2);
+    ok('and does not sit on anything else', clash.length === 0, clash.map(o=>o.id).join(', '));
+  }
+
+  // the cooling switch is mounted the way he described it
+  {
+    const c = AC.controls.find(x => x.id === 'liquidCool');
+    ok('AWG-9/AIM-54 is the forward position',
+       c.states[c.states.length - 1] === 'awg9aim54', c.states.join(' \u2192 '));
+    ok('AWG-9 alone is aft', c.states[0] === 'awg9');
+  }
+
+  // the parking brake stays set through a shutdown
+  {
+    const p = AC.procedures.find(x => x.meta.id === 'shutdown-pilot');
+    const last = p.steps[p.steps.length - 1];
+    ok('shutdown leaves the parking brake set',
+       /parkBrake==='set'/.test(last.done.toString()), strip(last.t));
+  }
+
+  // lights off on the boat, on at the field
+  {
+    const boat = AC.procedures.find(x => x.meta.id === 'landing-carrier')
+      .steps.find(s => /[Ll]anding lights/.test(s.t));
+    const field = AC.procedures.find(x => x.meta.id === 'landing-shore')
+      .steps.find(s => /[Ll]anding lights/.test(s.t));
+    ok('landing lights off on the boat', /landingLights==='off'/.test(boat.done.toString()));
+    ok('and on at the field', /landingLights==='on'/.test(field.done.toString()));
+  }
 }
 
 /* ------------------------------------------------------ offline cache */

@@ -2,8 +2,12 @@
 import { RIO_PRE, RIO_POST } from './rio-common.js';
 import { capCue } from '../systems.js';
 
+/* The front-seater runs his own start-up alongside you, on a script. */
+export const setup = sim => { sim.S.frontSeater = true; };
+
 export const meta = { id:'rio-shore', crew:'rio', phase:'startup', variant:'shore',
-                      name:'INS alignment · shore', view:'rioL' };
+                      name:'INS alignment · shore', view:'rioL' ,
+                      ending:{ title:'Aligned', sub:'The jet knows where it is.' } };
 
 export const MID = [
 {g:'2 · Present Position', t:'Open the kneeboard — <b>GROUND SETTINGS</b>',

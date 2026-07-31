@@ -6,7 +6,8 @@ import { bvrSetup } from '../systems.js';
 
 export const setup = sim => bvrSetup(sim);
 export const meta = { id:'aa-phoenix-stt', crew:'pilot', phase:'combat',
-                      name:'AIM-54 Phoenix · single target', view:'front' };
+                      name:'AIM-54 Phoenix · single target', view:'front' ,
+                      ending:{ title:'Fox Three Away', sub:'Single target, longest shot you have.' } };
 
 export const steps = [
 { g:'1 · Set Up', t:'Master Arm — <b>ON</b> (up)',
@@ -16,8 +17,8 @@ export const steps = [
   tgt:s=>s.sw.masterMode!=='aa' ? 'masterMode' : 'hsdMode', ctx:['hsdMode'],
   view:'front', done:s=>s.sw.masterMode==='aa'&&s.sw.hsdMode==='tid' },
 { g:'1 · Set Up', t:'Ask the back seat for <b>Liquid Cooling ON</b>',
-  note:'A → Radar and weapons → LIQUID COOLING. The AWG-9 will not play without it, and neither will the Phoenix.',
-  tgt:'comms:jester', done:s=>s.sw.liquidCool!=='off' },
+  note:'A → Radar and weapons → LIQUID COOLING. Forward is AWG-9/AIM-54, which is what you want with Phoenix aboard. It will run without it — it will just cook something eventually.',
+  tgt:'comms:jester', done:s=>s.sw.liquidCool==='awg9aim54' },
 { g:'1 · Set Up', t:'MSL PREP — <b>ON</b>, and wait for the missiles',
   note:'About two minutes. They show white when they are ready.',
   tgt:'mslPrep', view:'consoles', done:s=>!!s.bvr && s.bvr.prepped },
@@ -26,6 +27,9 @@ export const steps = [
   tgt:'weaponSel', done:s=>s.sw.weaponSel==='ph' },
 { g:'1 · Set Up', t:'Missile mode — <b>NORM</b>',
   tgt:'modeStp', view:'consoles', done:s=>s.sw.modeStp==='norm' },
+{ g:'2 · Employ', t:'Ask Jester for <b>RWS</b> or TWS',
+  note:'The radar comes up in PD Search, and PD and pulse search draw on the DDD in the back seat only — nothing reaches the TID. From up front you need RWS or TWS before there is a picture to work with. That is also why Jester will not offer you PD Search.',
+  tgt:'comms:jester', done:s=>['rws','twsman','twsauto'].includes(s.sw.radarMode) },
 { g:'2 · Employ', t:'<b>Hook your target</b> on the HSD — click the symbol',
   note:'The HSD is repeating the TID, so you can work the picture from up front. Whatever is hooked is what the lock will grab.',
   tgt:'scHsd', view:'front', done:s=>!!s.bvr && s.bvr.hooked!==null },

@@ -5,7 +5,8 @@ import { nextOf } from '../systems.js';
    done(s) is evaluated every frame; a step ticks itself off when the
    aircraft actually reaches that state. Steps are gated in order. */
 
-export const meta = { id:'pilot-start', crew:'pilot', phase:'startup', name:'Cold start', view:'front' };
+export const meta = { id:'pilot-start', crew:'pilot', phase:'startup', name:'Cold start', view:'front' ,
+                      ending:{ title:'Ready to Taxi', sub:'Chocks out when you are.' } };
 
 export const steps = [
 /* ---------------- 1. PILOT PRE-START ---------------- */

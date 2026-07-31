@@ -9,7 +9,8 @@ import { shutdownSetup, nextOf } from '../systems.js';
 
 export const setup = sim => shutdownSetup(sim);
 export const meta = { id:'shutdown-rio', crew:'rio', phase:'shutdown',
-                      name:'Shutdown · RIO', view:'rioR' };
+                      name:'Shutdown · RIO', view:'rioR' ,
+                      ending:{ title:'Back Seat Secure', sub:'Everything down and cooling off.' } };
 
 export const steps = [
 /* ---------------- sensors and weapons ---------------- */

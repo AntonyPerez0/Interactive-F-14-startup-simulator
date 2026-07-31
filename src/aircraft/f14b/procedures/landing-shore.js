@@ -8,7 +8,8 @@ import { setAirborne, nextOf } from '../systems.js';
 export const setup = sim => setAirborne(sim);
 
 export const meta = { id:'landing-shore', crew:'pilot', phase:'landing',
-                      name:'Landing · shore VFR', view:'front' };
+                      name:'Landing · shore VFR', view:'front' ,
+                      ending:{ title:'Down and Clear', sub:'Turn off at the taxiway.' } };
 
 export const steps = [
 /* ---------------- 1. before the break ---------------- */
@@ -22,10 +23,10 @@ export const steps = [
   tgt:'hookBypass', view:'consoles', done:s=>s.sw.hookBypass==='field' },
 { g:'1 · Configure', t:'Enter the initial at <b>300–350 kt</b>, about <b>800 ft</b>',
   ack:true, done:()=>false },
-{ g:'1 · Configure', t:'Wing sweep — <b>MANUAL</b>, thumb switch to <b>68°</b>',
-  note:'Manual means the handle is out of its detent. The thumb switch is on the stick, so it lives in the tray at the top left.',
-  tgt:'wingSweep', ctx:['sweepThumb'], view:'consoles',
-  done:s=>s.sw.wingSweep!=='detent'&&s.sweep>=67.5 },
+{ g:'1 · Configure', t:'Wings back to <b>68°</b> on the <b>thumb switch</b>',
+  note:'Sweeping is to shed lift, not to add drag — at 350 kt swept wings actually cut drag and help you accelerate. Less lift means your trim ends up much closer to the landing condition than entering the break wings forward. Once you are in the break let them come back out as you slow through the turn. The thumb switch is on the throttle, handle stowed and CADC working; the emergency handle is only for a failure.',
+  tgt:'sweepThumb', ctx:['wingSweep'], view:'consoles',
+  done:s=>s.sw.wingSweep==='detent'&&s.sweep>=67.5 },
 { g:'1 · Configure', t:'Trim to compensate for the loss of lift', ack:true, done:()=>false },
 { g:'1 · Configure', t:'HUD master mode — <b>LDG</b>',
   tgt:'masterMode', view:'front', done:s=>s.sw.masterMode==='ldg' },

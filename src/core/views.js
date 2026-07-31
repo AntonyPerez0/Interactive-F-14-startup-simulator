@@ -340,8 +340,10 @@ export function createViews(sim, ac) {
           let tracksUp = false;
           if (tl) {
             const B = S.bvr;
-            const searching = B && ['pdsrch','rws','twsman','twsauto','pdstt','pulsestt']
-              .includes(S.sw.radarMode);
+            /* PD and pulse search put their returns on the DDD only, so the TID
+               stays blank in those modes even though the tracks exist. */
+            const searching = B && !B.tidBlind &&
+              ['rws','twsman','twsauto','pdstt','pulsestt'].includes(S.sw.radarMode);
             tracksUp = !!(lit && tidRepeat && searching);
             tl.style.display = tracksUp ? 'block' : 'none';
             n.style.pointerEvents = tracksUp ? 'auto' : 'none';
@@ -394,6 +396,14 @@ export function createViews(sim, ac) {
               const dia = ac.insWeaponsReady(S);
               ip.querySelector('[data-ins="chev"]').style.display = dia ? 'none' : 'block';
               ip.querySelector('[data-ins="dia"]').style.display  = dia ? 'block' : 'none';
+              // the dot means fine alignment is done, not merely good enough to shoot
+              ip.querySelector('[data-ins="dot"]').style.display  = S.ins.complete ? 'block' : 'none';
+              // HS flashes when the alignment has fallen back to handset
+              const hs = ip.querySelector('[data-ins="hs"]');
+              hs.style.display = S.ins.handset ? 'block' : 'none';
+              // flashing while it waits for data, steady once it has some
+              hs.style.opacity = (S.ins.handset && !S.ins.handsetArmed &&
+                                  Math.floor(S.t * 2) % 2) ? 0.15 : 1;
             }
           }
         }
@@ -421,9 +431,14 @@ function insPanel() {
       'text-align:center;line-height:1;transition:left .35s linear">' +
       '<div data-ins="num" style="font-size:11px">00</div>' +
       '<div data-ins="chev" style="font-size:15px;margin-top:1px">\u2304</div>' +
+      // hollow diamond at weapons employment; the dot arrives only at full fine
       '<div data-ins="dia" style="display:none;width:11px;height:11px;margin:4px auto 0;' +
         'border:1.5px solid currentColor;transform:rotate(45deg);position:relative">' +
-        '<span style="position:absolute;inset:2.5px;background:currentColor"></span></div>' +
+        '<span data-ins="dot" style="display:none;position:absolute;inset:2.5px;' +
+        'background:currentColor"></span></div>' +
+      // handset alignment, flashing between the two markers when CAINS is lost
+      '<div data-ins="hs" style="display:none;position:absolute;top:30%;left:50%;' +
+        'transform:translateX(-50%);font-size:13px;letter-spacing:.1em">HS</div>' +
       '</div>';
   p.dataset.insPanel = '1';
   return p;

@@ -1,8 +1,12 @@
 /* F-14B · RIO INS ALIGNMENT (CARRIER) — guide Part 4 section 5, plus section 6. */
 import { RIO_PRE, RIO_POST } from './rio-common.js';
 
+/* The front-seater runs his own start-up alongside you, on a script. */
+export const setup = sim => { sim.S.frontSeater = true; };
+
 export const meta = { id:'rio-carrier', crew:'rio', phase:'startup', variant:'carrier',
-                      name:'INS alignment · carrier', view:'rioL' };
+                      name:'INS alignment · carrier', view:'rioL' ,
+                      ending:{ title:'Aligned', sub:'CAINS complete, ready for the cat.' } };
 
 export const MID = [
 {g:'2 · Carrier Datalink', t:'Open the kneeboard, page to <b>TACTICAL DATALINK SYSTEMS</b>',

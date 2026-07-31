@@ -5,11 +5,13 @@ import { bvrSetup, nextOf } from '../systems.js';
 
 export const setup = sim => bvrSetup(sim);
 export const meta = { id:'aa-phoenix-tws', crew:'rio', phase:'combat',
-                      name:'AIM-54 Phoenix · six shooter', view:'rioL' };
+                      name:'AIM-54 Phoenix · six shooter', view:'rioL' ,
+                      ending:{ title:'Fox Three', sub:'Multiple engaged from one picture.' } };
 
 export const steps = [
-{ g:'1 · Set Up', t:'Liquid Cooling — <b>ON</b>',
-  tgt:'liquidCool', view:'rioL', done:s=>s.sw.liquidCool!=='off' },
+{ g:'1 · Set Up', t:'Liquid Cooling — <b>AWG-9 / AIM-54</b> (forward)',
+  note:'Forward covers the missiles as well as the radar. Wrong position will not stop anything working, it just makes an overheat casualty a matter of time.',
+  tgt:'liquidCool', view:'rioL', done:s=>s.sw.liquidCool==='awg9aim54' },
 { g:'1 · Set Up', t:'Call the front seat — <b>Master Arm ON, MSL PREP ON, PH selected, NORM</b>',
   note:'All four are pilot switches. You can tell master arm went on from the back, because the radar symbology jumps to bright video.',
   tgt:'comms:ground',

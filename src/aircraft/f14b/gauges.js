@@ -46,6 +46,9 @@ export const gauges = [
     name:'RADAR ALTIMETER NEEDLE',
     lit: s => s.power && s.sw.radAltKnob === 'on',
     read: s => s.radalt.value, min: 0, max: 5000, a0: 0, a1: 350 },
+  // the ELEV LEAD window sits just above the knob
+  { id:'dgElevLead', view:'front', kind:'chip', x:1843, y:920, w:60, h:22,
+    name:'ELEV LEAD', read: s => s.sw.gunLead + '+' },
   { id:'dgFuel', view:'front', kind:'chip', x:1306, y:812, w:100, h:20, name:'FUEL',
     read: s => Math.round(s.fuel) + ' LB' },
 

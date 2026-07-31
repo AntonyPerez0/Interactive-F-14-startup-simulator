@@ -70,6 +70,12 @@ export const controls = [
     name:'VDI POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
   { id:'hudPower', view:'front', kind:'sw', x:1714, y:948, w:36, h:48,
     name:'HUD POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
+  /* Gunsight elevation lead, just right of the display power switches and above
+     the STEER CMD row. Position mapped from a zoom against those three switches. */
+  { id:'gunLead', view:'front', kind:'knob', x:1845, y:964, w:36, h:36,
+    name:'GUNSIGHT ELEVATION LEAD (mils)',
+    states:['000','025','050','075','100'],
+    lab:{'000':'000','025':'025','050':'050','075':'075','100':'100'}, init:'050' },
   { id:'hsdPower', view:'front', kind:'sw', x:1781, y:948, w:36, h:48,
     name:'HSD POWER', states:['off','on'], lab:{off:'OFF',on:'ON'}, init:'off' },
 
@@ -167,8 +173,6 @@ export const controls = [
     states:['off','fire'], lab:{off:'\u2014', fire:'FIRE'}, init:'off' },
   { id:'cageSeam', tray:true, kind:'lever', name:'CAGE / SEAM (throttle)',
     states:['caged','seam'], lab:{caged:'CAGED', seam:'SEAM'}, init:'caged' },
-  { id:'gunLead', tray:true, kind:'lever', name:'GUNSIGHT ELEVATION LEAD',
-    states:['manual','auto'], lab:{manual:'MANUAL', auto:'AUTO'}, init:'manual' },
   { id:'speedBrake', tray:true, kind:'lever', name:'SPEED BRAKE (throttle)',
     states:['in','out'], lab:{in:'IN',out:'OUT'}, init:'in' },
   { id:'dlc', tray:true, kind:'lever', name:'DLC THUMBWHEEL (stick)',
@@ -224,7 +228,8 @@ export const controls = [
     lab:{bit:'BIT',spl:'SPL',nav:'NAV',tacdata:'TAC DATA',dl:'D/L',tgtdata:'TGT DATA'}, init:'nav' },
   // sits hard against the left edge of the photo; the -1 is deliberate
   { id:'liquidCool', view:'rioL', kind:'sw', x:-1, y:280, w:34, h:52,
-    name:'LIQUID COOLING', states:['awg9aim54','off','awg9'],
+    // forward is AWG-9/AIM-54, aft is AWG-9 alone. Last in the list is forward.
+    name:'LIQUID COOLING', states:['awg9','off','awg9aim54'],
     lab:{awg9:'AWG-9',off:'OFF',awg9aim54:'AWG-9 / AIM-54'}, init:'off' },
   { id:'rioIcs', view:'rioL', kind:'sw', x:595, y:745, w:34, h:58,
     name:'RIO ICS', states:['cold','hot','ovrd'],

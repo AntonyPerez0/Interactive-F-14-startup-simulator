@@ -185,10 +185,15 @@ export function createChecklist(sim, ac) {
       const secs = Math.max(0, S.t - this.runStart);
       const mmss = Math.floor(secs / 60) + ':' + String(Math.floor(secs % 60)).padStart(2, '0');
       const clean = this.skips === 0 && S.faults.length === 0;
-      $('#doneTitle').firstChild.textContent =
-        this.procedure.meta.crew === 'rio' ? 'Aligned' : 'Ready to Taxi';
-      $('#doneSub').textContent = this.procedure.meta.name + ' · ' +
-        this.steps().length + ' of ' + this.steps().length + ' steps';
+      /* Each procedure says what finishing it actually means. A shutdown does
+         not leave you ready to taxi. */
+      const M = this.procedure.meta;
+      const fallback = { startup:'Ready to Taxi', landing:'Down and Clear',
+                         combat:'Weapon Away', shutdown:'Secured' };
+      const end = M.ending || { title: fallback[M.phase] || 'Complete', sub:'' };
+      $('#doneTitle').firstChild.textContent = end.title;
+      $('#doneSub').textContent = (end.sub ? end.sub + '  ·  ' : '') +
+        M.name + ' · ' + this.steps().length + ' steps';
       const res = this.onFinish
         ? this.onFinish({ seconds: secs, skips: this.skips, faults: S.faults.length })
         : null;
@@ -197,8 +202,17 @@ export function createChecklist(sim, ac) {
         ['Steps skipped', this.skips === 0 ? 'none' : String(this.skips), this.skips > 0],
         ['Faults logged', S.faults.length === 0 ? 'none'
           : S.faults.map(f => '<small>' + f + '</small>').join(''), S.faults.length > 0],
-        ['Alignment', S.ins.mode ? S.ins.mode.toUpperCase() : '—', false],
       ];
+      // one line of context that suits the phase
+      if (M.phase === 'startup')
+        rows.push(['Alignment', S.ins.mode ? S.ins.mode.toUpperCase() : '—', false]);
+      else if (M.phase === 'combat')
+        rows.push(['Weapons away', S.bvr ? String(S.bvr.fired) : '—', false]);
+      else if (M.phase === 'shutdown')
+        rows.push(['Engines', S.eng.L.n2 < 1 && S.eng.R.n2 < 1 ? 'both run down' : 'still turning',
+                   !(S.eng.L.n2 < 1 && S.eng.R.n2 < 1)]);
+      else
+        rows.push(['Fuel remaining', Math.round(S.fuel) + ' lb', false]);
       if (res && res.best != null) {
         const b = Math.floor(res.best / 60) + ':' + String(Math.floor(res.best % 60)).padStart(2, '0');
         rows.splice(1, 0, ['Best clean run', b, false]);

@@ -4,7 +4,8 @@ import { bvrSetup } from '../systems.js';
 
 export const setup = sim => bvrSetup(sim);
 export const meta = { id:'aa-sparrow', crew:'pilot', phase:'combat',
-                      name:'AIM-7M Sparrow', view:'front' };
+                      name:'AIM-7M Sparrow', view:'front' ,
+                      ending:{ title:'Fox One Away', sub:'Hold the lock all the way in.' } };
 
 export const steps = [
 { g:'1 · Set Up', t:'Master Arm — <b>ON</b> (up)',
@@ -19,6 +20,9 @@ export const steps = [
   tgt:'weaponSel', done:s=>s.sw.weaponSel==='sp' },
 { g:'1 · Set Up', t:'Missile mode — <b>NORM</b>',
   tgt:'modeStp', view:'consoles', done:s=>s.sw.modeStp==='norm' },
+{ g:'2 · Employ', t:'Ask Jester for <b>RWS</b> or TWS',
+  note:'The radar comes up in PD Search, and PD and pulse search draw on the DDD in the back seat only — nothing reaches the TID. From up front you need RWS or TWS before there is a picture to work with. That is also why Jester will not offer you PD Search.',
+  tgt:'comms:jester', done:s=>['rws','twsman','twsauto'].includes(s.sw.radarMode) },
 { g:'2 · Employ', t:'HSD mode — <b>TID</b>, to repeat the back-seat picture',
   note:'That is how you see the tracks from up front.',
   tgt:'hsdMode', view:'front', done:s=>s.sw.hsdMode==='tid' },

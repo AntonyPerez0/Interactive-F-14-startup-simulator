@@ -11,7 +11,8 @@ import { shutdownSetup, nextOf } from '../systems.js';
 
 export const setup = sim => shutdownSetup(sim);
 export const meta = { id:'shutdown-pilot', crew:'pilot', phase:'shutdown',
-                      name:'Shutdown · pilot', view:'front' };
+                      name:'Shutdown · pilot', view:'front' ,
+                      ending:{ title:'Cold and Dark', sub:'Brake set, chocks in, seat safe.' } };
 
 export const steps = [
 /* ---------------- clear of the runway ---------------- */
@@ -25,6 +26,10 @@ export const steps = [
   view:'front', done:s=>s.sw.hookHandle==='up'&&s.sw.speedBrake==='in' },
 { g:'1 · Clear The Runway', t:'Master Arm — <b>OFF</b>',
   tgt:'masterArm', view:'consoles', done:s=>s.sw.masterArm==='off' },
+{ g:'1 · Clear The Runway', t:'Exterior lights — <b>OFF</b>, landing lights — <b>OFF</b>',
+  note:'Worked from the pinky switch on the throttle; position and anti-collision are just options on it. This happens before you taxi, not after — on the boat, lights showing on deck mean a radio failure.',
+  tgt:s=>nextOf(s,[['extLights','off'],['landingLights','off']]), ctx:['landingLights'],
+  view:'consoles', done:s=>s.sw.extLights==='off'&&s.sw.landingLights==='off' },
 { g:'1 · Clear The Runway', t:'Taxi clear and follow the director to the line',
   ack:true, done:()=>false },
 
@@ -38,9 +43,7 @@ export const steps = [
   tgt:'comms:ground', ack:true, done:()=>false },
 
 /* ---------------- secure the cockpit ---------------- */
-{ g:'3 · Secure', t:'Exterior lights — <b>OFF</b>, landing lights — <b>OFF</b>',
-  tgt:s=>nextOf(s,[['extLights','off'],['landingLights','off']]), ctx:['landingLights'],
-  view:'consoles', done:s=>s.sw.extLights==='off'&&s.sw.landingLights==='off' },
+
 { g:'3 · Secure', t:'VDI, HUD and HSD power — <b>OFF</b>',
   tgt:s=>nextOf(s,[['vdiPower','off'],['hudPower','off'],['hsdPower','off']]),
   ctx:['hudPower','hsdPower'], view:'front',
@@ -75,7 +78,7 @@ export const steps = [
   view:'consoles', done:s=>s.sw.masterGenL==='off'&&s.sw.masterGenR==='off' },
 { g:'4 · Shut Down', t:'Oxygen — <b>OFF</b>',
   tgt:'oxygen', view:'consoles', done:s=>s.sw.oxygen==='off' },
-{ g:'4 · Shut Down', t:'Parking brake — <b>RELEASED</b> once the chocks are in',
-  note:'Brakes cool better off. The chocks are holding it now.',
-  tgt:'parkBrake', view:'front', done:s=>s.sw.parkBrake==='off' },
+{ g:'4 · Shut Down', t:'Parking brake — <b>LEAVE IT SET</b>',
+  note:'It stays engaged through shutdown so it is already set for the next start. Engaged keeps the hydraulic pressure that powers it; release it and that pressure drains away.',
+  tgt:'parkBrake', view:'front', done:s=>s.sw.parkBrake==='set' },
 ];
