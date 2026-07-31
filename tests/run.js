@@ -716,9 +716,10 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'combat')) {
     ok('shot away with a track held', S.bvr.fired > 0);
   }
   if (proc.meta.id === 'aa-phoenix-tws') {
-    to('liquidCool','awg9aim54'); to('mslPrep','on'); to('weaponSel','ph');
-    to('modeStp','norm'); to('masterArm','on'); run(130);
-    to('weaponSel','ph'); to('modeStp','norm'); to('mslGate','nose');
+    to('liquidCool','awg9aim54');
+    AC.radio(h.sim, 'pPhoenix');        // the RIO asks the front seat
+    run(130);
+    to('weaponSel','ph'); to('modeStp','norm'); to('mslGate','noseqtr');
     to('mslOptions','norm'); to('tgtSize','large');
     h.sim.click('rm_twsman',1); to('elBars','4'); to('azScan','20');
     run(3); h.sim.click('rm_twsauto',1); to('capCategory','tgtdata'); run(3);
@@ -984,6 +985,27 @@ head('Review · round 3');
        trap.meta.ending.title);
   }
 
+  /* Every step must be reachable from the seat you are sitting in. A step whose
+     target is a comms menu has to name a menu that exists and can actually do it. */
+  {
+    const unreachable = [];
+    AC.procedures.forEach(p => p.steps.forEach(s => {
+      if (typeof s.tgt !== 'string' || !s.tgt.startsWith('comms:')) return;
+      const menu = s.tgt.split(':')[1];
+      if (!AC.menus[menu]) unreachable.push(p.meta.id + ' step ' + s.n + ' -> ' + menu);
+    }));
+    ok('every comms target names a real menu', unreachable.length === 0, unreachable.join(', '));
+
+    // and the six shooter's front-seat call actually sets the four switches
+    const sim = createSim(AC);
+    AC.procedures.find(p => p.meta.id === 'aa-phoenix-tws').setup(sim);
+    AC.radio(sim, 'pPhoenix');
+    for (let i = 0; i < 20 * 130; i++) sim.tick(0.05);
+    const s2 = AC.procedures.find(p => p.meta.id === 'aa-phoenix-tws').steps.find(x => x.n === 2);
+    ok('the RIO can get the front seat to set up', s2.done(sim.S),
+       [sim.S.sw.masterArm, sim.S.sw.weaponSel, sim.S.sw.modeStp].join(' / '));
+  }
+
   // gunsight elevation lead now lives in the cockpit, not the tray
   {
     const c = AC.controls.find(x => x.id === 'gunLead');
@@ -1140,6 +1162,59 @@ head('Knob detents');
      withAngles.every(c => c.angles.every((a, i) => i === 0 || a > c.angles[i - 1])));
   ok('declared angles stay on the dial face',
      withAngles.every(c => c.angles.every(a => a > -180 && a < 180)));
+
+  // the squadron mark
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const menu = rf(new URL('../src/core/menu.js', import.meta.url), 'utf8');
+    const css  = rf(new URL('../src/core/style.css', import.meta.url), 'utf8');
+    ok('the hangar header carries the mark', /vwa-144\.png/.test(menu));
+    ok('the file is there', (() => {
+      try { rf(new URL('../assets/brand/vwa-144.png', import.meta.url)); return true; }
+      catch (e) { return false; } })());
+    /* The selector has to match the class the element actually carries — it was
+       written against .head while the element is .menuhead, so nothing applied. */
+    ok('the header really gets that class', /classList\.add\('withmark'\)/.test(menu));
+    ok('and the rule targets menuhead, not head',
+       /\.menuhead\.withmark\{display:flex/.test(css) && !/\.head\.withmark/.test(css));
+    ok('it is small, not a billboard', /\.menuhead \.mark\{[^}]*width:72px/.test(css));
+    ok('and smaller again on a phone', /max-width:820px\)\{[\s\S]{0,140}\.mark\{width:52px/.test(css));
+    ok('it carries alt text', /alt="Virtual Weapons Academy"/.test(menu));
+    ok('it links to the squadron site',
+       /href="https:\/\/www\.virtualweaponsacademy\.org\//.test(menu));
+    ok('the link opens in a new tab', /target="_blank"/.test(menu));
+    ok('and is safe about it', /rel="noopener noreferrer"/.test(menu));
+    ok('the link has a focus ring for keyboards', /\.marklink:focus-visible/.test(css));
+
+    /* The single-file build inlines assets. A path it fails to match ships as a
+       broken image, which is exactly what happened here. */
+    const bundler = rf(new URL('../tools/bundle.py', import.meta.url), 'utf8');
+    ok('the bundler catches double-quoted asset paths', /\['\\"\]\(assets/.test(bundler));
+    ok('and swaps both quote styles', /body\.replace\('"%s"'/.test(bundler));
+  }
+
+  // the weapons panel, mapped from a photo against the LAUNCH button
+  {
+    const gate = AC.controls.find(c => c.id === 'mslGate');
+    ok('MSL SPD GATE is a six position rotary',
+       gate.kind === 'knob' && gate.states.length === 6, gate.states.join(' '));
+    ok('its detent angles were measured', (gate.angles || []).length === 6);
+    ok('NOSE QTR is one of them', gate.states.includes('noseqtr'));
+    const opt = AC.controls.find(c => c.id === 'mslOptions');
+    ok('A/A OPTIONS has all three positions',
+       opt.states.length === 3 && opt.states.includes('sppd') && opt.states.includes('phact'),
+       opt.states.join(' / '));
+    const panel = ['nextLaunch','mslOptions','mslGate','launchBtn'].map(id => AC.controls.find(c => c.id === id));
+    const clash = [];
+    for (let i = 0; i < panel.length; i++) for (let j = i + 1; j < panel.length; j++) {
+      const a = panel[i], b2 = panel[j];
+      if (Math.min(a.x+a.w,b2.x+b2.w) - Math.max(a.x,b2.x) > 2 &&
+          Math.min(a.y+a.h,b2.y+b2.h) - Math.max(a.y,b2.y) > 2) clash.push(a.id + '/' + b2.id);
+    }
+    ok('nothing on the weapons panel overlaps', clash.length === 0, clash.join(', '));
+    ok('all of it fits inside the frame',
+       panel.every(c => c.x + c.w <= 1920 && c.y + c.h <= 1080));
+  }
 
   const modeBtns = AC.controls.filter(c => c.id.startsWith('rm_'));
   const unlabelled = AC.controls.filter(c => c.states && (!c.lab || c.states.some(s => !(s in c.lab))));

@@ -83,6 +83,15 @@ export default {
         { k:'F12', t:'Back', go:'gc', back:true },
       ],
     },
+    pilot: {
+      title: 'Front Seat',
+      root: [
+        { k:'C+1', t:'SET UP FOR PHOENIX — arm, prep, PH, NORM', act:'pPhoenix' },
+        { k:'C+2', t:'MASTER ARM — ON', act:'pArm' },
+        { k:'C+3', t:'MASTER ARM — OFF, safe the jet', act:'pSafe' },
+        { k:'C+4', t:'HOLD THIS HEADING and speed', act:'pSteady' },
+      ],
+    },
     jester: {
       title: 'Jester — RIO  ( A )',
       root: [

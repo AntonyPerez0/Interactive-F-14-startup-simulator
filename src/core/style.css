@@ -534,3 +534,17 @@ body.edit #editbar{display:flex}
 .visitors b{display:block;font-family:var(--data);font-size:19px;letter-spacing:.02em;
   color:var(--phos);text-transform:none;margin-bottom:2px}
 @media (max-width:820px){ .visitors{gap:18px;padding:10px 12px} .visitors b{font-size:16px} }
+
+/* ---------- squadron mark on the hangar header ---------- */
+.menuhead.withmark{display:flex;align-items:flex-start;gap:26px}
+.menuhead.withmark .headtext{flex:1 1 auto;min-width:0}
+.menuhead .marklink{flex:0 0 auto;display:block;line-height:0;border-radius:3px}
+.menuhead .mark{display:block;width:72px;height:auto;margin-top:2px;
+  opacity:.88;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));
+  transition:opacity .2s}
+.menuhead .marklink:hover .mark{opacity:1;transform:translateY(-1px)}
+.menuhead .marklink:focus-visible{outline:2px solid var(--phos);outline-offset:3px}
+@media (max-width:820px){
+  .menuhead.withmark{gap:16px}
+  .menuhead .mark{width:52px}
+}

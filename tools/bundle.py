@@ -128,8 +128,11 @@ def main():
         mime = 'image/jpeg' if p.suffix in ('.jpg', '.jpeg') else 'image/png'
         return 'data:%s;base64,%s' % (mime, base64.b64encode(p.read_bytes()).decode())
 
-    for asset in sorted({a for a in re.findall(r"'(assets/[^']+)'", body)}):
-        body = body.replace("'%s'" % asset, "'%s'" % datauri(asset))
+    # asset paths may be single or double quoted, so catch both
+    for asset in sorted({a for a in re.findall(r"['\"](assets/[^'\"]+)['\"]", body)}):
+        uri = datauri(asset)
+        body = body.replace("'%s'" % asset, "'%s'" % uri)
+        body = body.replace('"%s"' % asset, '"%s"' % uri)
 
     html = html.replace('<link rel="stylesheet" href="src/core/style.css">',
                         '<style>\n' + css + '\n</style>')

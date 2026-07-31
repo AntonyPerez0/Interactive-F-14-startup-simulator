@@ -503,6 +503,22 @@ export function radio(sim, act) {
         S.ins.mode=m; S.ins.t=0; S.ins.complete=false;
         sim.emit('Jester: alignment set to '+m.toUpperCase()+'.','radio'); break;
       }
+      case 'pPhoenix':
+        sim.set('masterArm','on'); sim.set('weaponSel','ph'); sim.set('modeStp','norm');
+        sim.set('mslPrep','on');
+        sim.emit('Pilot: master arm on, missile prep running, Phoenix selected, NORM.','radio');
+        break;
+      case 'pArm':
+        sim.set('masterArm','on');
+        sim.emit('Pilot: master arm on.','radio');
+        break;
+      case 'pSafe':
+        sim.set('masterArm','off');
+        sim.emit('Pilot: master arm off, we are safe.','radio');
+        break;
+      case 'pSteady':
+        sim.emit('Pilot: holding this heading and speed.','radio');
+        break;
       case 'jLock':
         sim.set('radarMode','pdstt');
         sim.emit('Jester: locked, single target track.','radio');

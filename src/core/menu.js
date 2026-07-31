@@ -50,11 +50,19 @@ export function createMenu(catalogue, onPick, stats, presence) {
       const head = el('div', 'menuhead');
       const built = catalogue.filter(c => c.module).length;
       const sum = stats ? stats.summary() : null;
+      head.classList.add('withmark');
       head.innerHTML =
-        '<div class="kick">DCS Cockpit Trainer</div>' +
-        '<h1>Choose an aircraft<small>' + built + ' of ' + catalogue.length +
-        ' built. Every switch is live, and the checklist ticks itself off when the ' +
-        'aircraft actually gets there.</small></h1>';
+        '<div class="headtext">' +
+          '<div class="kick">DCS Cockpit Trainer</div>' +
+          '<h1>Choose an aircraft<small>' + built + ' of ' + catalogue.length +
+          ' built. Every switch is live, and the checklist ticks itself off when the ' +
+          'aircraft actually gets there.</small></h1>' +
+        '</div>' +
+        // the squadron the procedures were reviewed by
+        '<a class="marklink" href="https://www.virtualweaponsacademy.org/" ' +
+          'target="_blank" rel="noopener noreferrer">' +
+          '<img class="mark" alt="Virtual Weapons Academy" title="Virtual Weapons Academy" src=' +
+          JSON.stringify('assets/brand/vwa-144.png') + '></a>';
       this.inner.appendChild(head);
 
       if (sum && sum.runs) {
