@@ -70,6 +70,9 @@ function makeEl(tag = 'div') {
     set: v => {
       node._html = v;
       node._virtual = [];
+      // a real browser drops appended children too; without this the shim keeps
+      // stale nodes and anything counting elements gets the wrong answer
+      node.children.length = 0;
       for (const m of String(v).matchAll(/<(\w+)([^>]*)>/g)) {
         const stub = makeEl(m[1]);
         const attrs = m[2];

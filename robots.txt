@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# nothing here is private, but there is no point crawling the endpoint
+Disallow: /api/

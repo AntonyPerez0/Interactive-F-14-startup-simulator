@@ -1163,6 +1163,179 @@ head('Knob detents');
   ok('declared angles stay on the dial face',
      withAngles.every(c => c.angles.every(a => a > -180 && a < 180)));
 
+  /* A cue pointing at a control that is already where the step needs it is a
+     dead end: the user is told to look at something correct and gets no hint
+     about what actually has to move. */
+  {
+    const useless = [];
+    AC.procedures.forEach(p => p.steps.forEach(s => {
+      const src = s.done.toString();
+      if (!/s\.sweep/.test(src)) return;
+      const tgt = typeof s.tgt === 'function' ? null : s.tgt;
+      // if the step needs the handle stowed, the handle is already stowed, so
+      // the thumb switch is the only thing that can satisfy it
+      if (/wingSweep==='detent'/.test(src) && tgt !== 'sweepThumb')
+        useless.push(p.meta.id + ' step ' + s.n + ' cues ' + tgt);
+      // and where the handle itself must move, cue the handle
+      if (/wingSweep==='oversweep'/.test(src) && tgt !== 'wingSweep')
+        useless.push(p.meta.id + ' step ' + s.n + ' cues ' + tgt);
+    }));
+    ok('sweep steps cue whatever actually has to move', useless.length === 0,
+       useless.join(', '));
+
+    // and the step that was stuck really does clear now
+    const proc = AC.procedures.find(p => p.meta.id === 'landing-carrier');
+    const s19 = proc.steps.find(x => x.n === 19);
+    const sim = createSim(AC); proc.setup(sim);
+    const run = n => { for (let i = 0; i < n * 20; i++) sim.tick(0.05); };
+    sim.set('sweepThumb', 'aft'); run(12);
+    ok('wings back, so the step is not yet met', !s19.done(sim.S));
+    sim.click(s19.tgt, 1); run(12);
+    ok('clicking what it cues clears it', s19.done(sim.S),
+       sim.S.sweep.toFixed(0) + '\u00b0');
+  }
+
+  // a route for corrections, a build to quote, and something to watch while it loads
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const g = f => rf(new URL('../' + f, import.meta.url), 'utf8');
+    const menu = g('src/core/menu.js'), app = g('src/core/app.js');
+    const views = g('src/core/views.js'), html = g('index.html');
+
+    const cfg = g('src/core/config.js');
+    ok('there is somewhere to report a problem', /FEEDBACK_URL\s*=\s*\n?\s*'https?:\/\//.test(cfg));
+    ok('the link is in the footer', /Found something wrong\?/.test(menu));
+    ok('and opens safely', /rel = 'noopener noreferrer'/.test(menu));
+    ok('an empty URL hides it', /if \(FEEDBACK_URL\)/.test(menu));
+
+    const build = g('src/core/build.js');
+    ok('the build is stamped', /export const BUILD = '[0-9a-f]{8}'/.test(build));
+    ok('it is generated, not hand-edited', /Do not edit/.test(build));
+    ok('and shown where a reporter can find it', /buildstamp/.test(menu));
+
+
+    /* Boot code once ended up inside the frame loop, so the service worker was
+       re-registered sixty times a second. Check what the loop contains. */
+    {
+      const lines = app.split('\n');
+      const i = lines.findIndex(l => l.startsWith('function frame('));
+      let depth = 0, end = i;
+      for (let n = i; n < lines.length; n++) {
+        depth += (lines[n].match(/\{/g) || []).length - (lines[n].match(/\}/g) || []).length;
+        if (n > i && depth === 0) { end = n; break; }
+      }
+      const loop = lines.slice(i, end + 1).join('\n');
+      const strays = ['serviceWorker.register', 'setTimeout(dismiss', "classList.add('booted')",
+                      'P.start()', 'P.onCounts'].filter(s => loop.includes(s));
+      ok('the frame loop does one-off work nowhere', strays.length === 0, strays.join(', '));
+      ok('the loop still schedules itself', /requestAnimationFrame\(frame\)/.test(loop));
+    }
+
+    ok('registering the worker cannot throw the app over',
+       /try \{[\s\S]{0,200}serviceWorker\.register/.test(app));
+
+    // and the single file must not reference paths it cannot resolve
+    const bundler = g('tools/bundle.py');
+    ok('the single-file build inlines its tab icon',
+       /data:image\/svg\+xml;base64/.test(bundler));
+    ok('and strips links that would 404',
+       /rel="manifest"/.test(bundler) && /rel="apple-touch-icon"/.test(bundler));
+  }
+
+  // the things that make it a project rather than a file
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const has = f => { try { return rf(new URL('../' + f, import.meta.url), 'utf8'); }
+                       catch (e) { return null; } };
+
+    const readme = has('README.md');
+    ok('the README describes what actually ships',
+       /twelve procedures/.test(readme) && /six shooter/.test(readme));
+    ok('it does not still claim three procedures',
+       !/the pilot cold start, and the RIO INS/.test(readme));
+
+    const lic = has('LICENSE');
+    ok('there is a licence', !!lic);
+    ok('and it excludes the artwork it cannot license',
+       /NOT COVERED BY THIS LICENCE/.test(lic) && /Eagle Dynamics/.test(lic));
+
+    ok('there is a custom 404', /DCS Cockpit Trainer/.test(has('404.html') || ''));
+    ok('robots allows the site but not the endpoint',
+       /Disallow: \/api\//.test(has('robots.txt') || ''));
+
+    const html = has('index.html');
+  }
+
+  /* The footer was built inside the category loop, so it appeared once per
+     category. Check where it is created, not how many the shim can see. */
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const src = rf(new URL('../src/core/menu.js', import.meta.url), 'utf8');
+    ok('the footer is built exactly once', (src.match(/menufoot/g) || []).length === 1,
+       (src.match(/menufoot/g) || []).length + ' occurrences');
+    const i = src.indexOf('cats.forEach');
+    const loop = src.slice(i, src.indexOf('\n      });', i));
+    ok('and not inside the category loop', !loop.includes('menufoot'));
+    // both footer links share a class, and the label also titles the privacy
+    // page, so count the button that opens it
+    ok('the privacy link is built once too',
+       (src.match(/this\.open\('privacy'\)/g) || []).length === 1);
+    ok('so is the feedback link',
+       (src.match(/Found something wrong\?/g) || []).length === 1);
+    /* The markup for the footer links existed while their styling did not, so
+       the two ran together as one underlined string. Check both halves. */
+    const css2 = rf(new URL('../src/core/style.css', import.meta.url), 'utf8');
+    ok('the footer links are actually spaced apart',
+       /\.footlinks\{[^}]*gap:\d+px/.test(css2));
+    ok('and the build stamp is styled', /\.buildstamp\{/.test(css2));
+
+    // the disclaimer has to be visible on the page, not one click away
+    ok('the hangar says it is unofficial', /unofficial, non-commercial fan project/i.test(src));
+    ok('and names who the artwork belongs to',
+       /Eagle Dynamics/.test(src) && /Heatblur/.test(src));
+    ok('it is built once, outside the loop', (src.match(/'unofficial'/g) || []).length === 1);
+  }
+
+  // what the site keeps, and the one thing you can refuse
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const files = ['src/core/menu.js','src/core/stats.js','src/core/presence.js',
+                   'src/core/app.js','src/core/views.js','src/core/checklist.js',
+                   'functions/api/presence.js']
+      .map(f => rf(new URL('../' + f, import.meta.url), 'utf8')).join('\n');
+
+    ok('the site sets no cookies', !/document\.cookie/.test(files));
+    ok('it calls no third party', !/https?:\/\/(?!www\.virtualweaponsacademy)/.test(files),
+       (files.match(/https?:\/\/[^'"\s)]+/g) || []).filter(u => !/virtualweaponsacademy/.test(u)).join(', ') || 'none');
+    const keys = [...files.matchAll(/const (?:KEY|OPT) = '([^']+)'/g)].map(m => m[1]);
+    ok('it stores exactly three named things', keys.length === 3, keys.join(', '));
+    ok('the server records nothing but an id and a time',
+       /INSERT INTO presence \(id, seen\)/.test(files) &&
+       !/CF-Connecting-IP|request\.headers/i.test(files));
+
+    // the opt-out has to actually stop it
+    const store = new Map();
+    const realLS = globalThis.localStorage, realDoc = globalThis.document, realFetch = globalThis.fetch;
+    globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null,
+      setItem: (k,v) => store.set(k,String(v)), removeItem: k => store.delete(k) };
+    globalThis.document = { addEventListener() {}, visibilityState:'visible' };
+    let sent = 0; globalThis.fetch = async () => { sent++; return { ok:true, json: async () => ({ online:1 }) }; };
+    const mod = await import('../src/core/presence.js?privacy');
+    store.set('dcs-trainer-visitor','abc');
+    mod.setCounting(false);
+    ok('opting out forgets the id', !store.has('dcs-trainer-visitor'));
+    mod.createPresence('/api/presence').start();
+    await new Promise(r => setTimeout(r, 20));
+    ok('and sends nothing at all', sent === 0, sent + ' requests');
+    mod.setCounting(true);
+    ok('you can turn it back on', !mod.countingOff());
+    globalThis.localStorage = realLS; globalThis.document = realDoc; globalThis.fetch = realFetch;
+
+    const menu = rf(new URL('../src/core/menu.js', import.meta.url), 'utf8');
+    ok('there is a page explaining all of it', /renderPrivacy/.test(menu));
+    ok('reachable from the aircraft screen', /privlink/.test(menu));
+  }
+
   // era classifications the reviewers corrected
   {
     const era = name => AC_CATALOGUE.find(c => c.name.includes(name)).cat;

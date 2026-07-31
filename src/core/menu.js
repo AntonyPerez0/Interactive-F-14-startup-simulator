@@ -9,6 +9,9 @@
    ============================================================ */
 import { $, el } from './dom.js';
 import { mmss } from './stats.js';
+import { countingOff, setCounting } from './presence.js';
+import { FEEDBACK_URL } from './config.js';
+import { BUILD, BUILT } from './build.js';
 
 const PHASES = [
   { id:'startup',  label:'Start-up',  blurb:'Cold and dark to ready to taxi' },
@@ -41,7 +44,8 @@ export function createMenu(catalogue, onPick, stats, presence) {
 
     render() {
       this.inner.innerHTML = '';
-      this[this.screen === 'procs' ? 'renderProcs' : 'renderHangar']();
+      const screens = { procs:'renderProcs', privacy:'renderPrivacy' };
+      this[screens[this.screen] || 'renderHangar']();
       this.box.scrollTop = 0;
     },
 
@@ -97,6 +101,7 @@ export function createMenu(catalogue, onPick, stats, presence) {
       }
 
       const cats = [...new Set(catalogue.map(c => c.cat))];
+      this.wantFooter = true;
       cats.forEach(cat => {
         const sec = el('div', 'phase');
         const h = el('div', 'phasehead');
@@ -117,10 +122,107 @@ export function createMenu(catalogue, onPick, stats, presence) {
         });
         sec.appendChild(grid);
         this.inner.appendChild(sec);
+
       });
+
+      const foot = el('div', 'menufoot');
+      const note = el('p', 'unofficial');
+      note.innerHTML =
+        'An unofficial, non-commercial fan project. Not affiliated with or ' +
+        'endorsed by <b>Eagle Dynamics</b>, <b>Heatblur Simulations</b> or any ' +
+        'other developer. Cockpit imagery belongs to them and is used here to ' +
+        'teach switch positions.';
+      foot.appendChild(note);
+      const links = el('div', 'footlinks');
+      const pl = el('button', 'privlink');
+      pl.textContent = 'What this site keeps';
+      pl.onclick = () => this.open('privacy');
+      links.appendChild(pl);
+
+      if (FEEDBACK_URL) {
+        const fb = el('a', 'privlink');
+        fb.href = FEEDBACK_URL;
+        fb.target = '_blank';
+        fb.rel = 'noopener noreferrer';
+        fb.textContent = 'Found something wrong?';
+        links.appendChild(fb);
+      }
+      foot.appendChild(links);
+
+      /* A build stamp, so a report can name which deploy it came from. */
+      const stamp = el('div', 'buildstamp');
+      stamp.textContent = 'build ' + BUILD + ' \u00b7 ' + BUILT;
+      stamp.title = 'Quote this if you report a problem';
+      foot.appendChild(stamp);
+
+      this.inner.appendChild(foot);
     },
 
     /* ---------------- screen 2: procedures ---------------- */
+    /* What the site keeps, in plain words, with a switch for the one thing that
+       is not strictly necessary. */
+    renderPrivacy() {
+      const head = el('div', 'menuhead');
+      head.innerHTML =
+        '<div class="kick">Privacy</div>' +
+        '<h1>What this site keeps<small>There are no cookies, no analytics, ' +
+        'no third parties. Two things are stored, both described below.</small></h1>';
+      this.inner.appendChild(head);
+
+      const wrap = el('div', 'privacy');
+      wrap.innerHTML =
+        '<h4>Your times, kept on your device</h4>' +
+        '<p>Runs, completions and best times per procedure, stored in your ' +
+        'browser under <code>dcs-trainer-stats-v1</code>. It is never sent ' +
+        'anywhere. Clearing your browser data removes it, and so does the ' +
+        'Clear button on the aircraft screen.</p>' +
+
+        '<h4>The visitor count</h4>' +
+        '<p>Your browser makes up a random string — no name, no address, ' +
+        'nothing derived from you — and sends it every 45 seconds so the site ' +
+        'can show how many people are here. The server keeps that string and a ' +
+        'timestamp, nothing else. Rows older than a year are deleted.</p>' +
+        '<p>This is the only thing that leaves your device, and the only part ' +
+        'you might reasonably object to, so you can turn it off.</p>' +
+
+        '<h4>What is not here</h4>' +
+        '<ul>' +
+          '<li>no cookies at all</li>' +
+          '<li>no Google Analytics or any other tracker</li>' +
+          '<li>no third-party fonts, scripts or embeds</li>' +
+          '<li>no IP addresses or request headers recorded</li>' +
+          '<li>nothing sold, shared or used for advertising</li>' +
+        '</ul>' +
+        '<h4>Credit where it is due</h4>' +
+        '<p>The cockpit photographs are Eagle Dynamics and Heatblur artwork, used ' +
+        'to teach switch positions. The procedures follow Chuck\'s guide, corrected ' +
+        'by aircrew from the Virtual Weapons Academy. This is an unofficial, ' +
+        'non-commercial community tool with no affiliation to any of them.</p>' +
+        '<p class="fine">The site is served by Cloudflare, which may set its own ' +
+        'security cookie on requests as part of blocking bots. That is theirs, ' +
+        'not something this site asks for or reads.</p>';
+
+      const row = el('div', 'optout');
+      const btn = el('button', 'btn');
+      const paint = () => {
+        const off = countingOff();
+        btn.textContent = off ? 'Counting is off — turn it back on' : 'Do not count my visits';
+        btn.classList.toggle('on', !off);
+        row.querySelector('.state').textContent = off ? 'OFF' : 'ON';
+      };
+      row.innerHTML = '<span>Visitor counting <b class="state"></b></span>';
+      btn.onclick = () => { setCounting(countingOff()); paint(); };
+      row.appendChild(btn);
+      wrap.appendChild(row);
+      paint();
+
+      const back = el('button', 'btn back');
+      back.textContent = '\u2190 Back';
+      back.onclick = () => this.open('hangar');
+      wrap.appendChild(back);
+      this.inner.appendChild(wrap);
+    },
+
     renderProcs() {
       const ac = this.entry.module;
 

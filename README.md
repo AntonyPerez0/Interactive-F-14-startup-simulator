@@ -5,9 +5,27 @@ cockpit screenshots; the aircraft is simulated underneath, so each checklist ste
 ticks itself off when the jet actually reaches that state rather than when you
 say it has.
 
-Currently ships the **F-14B Tomcat**: the pilot cold start, and the RIO INS
-alignment ashore and on the boat. Procedures follow Chuck's DCS F-14B guide,
-Part 4.
+Currently ships the **F-14B Tomcat** — twelve procedures across four phases:
+
+| phase | crew | procedure | steps |
+|---|---|---|---|
+| start-up | pilot | Cold start | 52 |
+| start-up | RIO | INS alignment · shore | 36 |
+| start-up | RIO | INS alignment · carrier | 34 |
+| air to air | pilot | Guns · M61 | 8 |
+| air to air | pilot | AIM-9M Sidewinder | 9 |
+| air to air | pilot | AIM-7M Sparrow | 12 |
+| air to air | pilot | AIM-54 Phoenix · single target | 12 |
+| air to air | RIO | AIM-54 Phoenix · six shooter | 16 |
+| landing | pilot | Landing · shore VFR | 20 |
+| landing | pilot | Landing · carrier Case I | 40 |
+| shutdown | pilot | Shutdown · pilot | 21 |
+| shutdown | RIO | Shutdown · RIO | 14 |
+
+Procedures follow Chuck's DCS F-14B guide, corrected throughout by aircrew who
+reviewed the trainer directly. Where the guide and the reviewers disagreed, the
+reviewers won and the reason is written into the step. The shutdown procedures
+are not in the guide at all and say so at the top of the file.
 
 ## Running it
 

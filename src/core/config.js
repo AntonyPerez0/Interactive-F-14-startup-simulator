@@ -9,3 +9,8 @@
    Set it to '' to switch the counter off entirely, which is the right setting
    for a plain GitHub Pages deploy with nothing behind it. */
 export const PRESENCE_URL = '/api/presence';
+
+/* Where people should send corrections. A wrong hotspot or a step that cannot be
+   completed is worth hearing about; leave this empty to hide the link. */
+export const FEEDBACK_URL =
+  'https://github.com/AntonyPerez0/Interactive-F-14-startup-simulator/issues';

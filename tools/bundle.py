@@ -134,6 +134,17 @@ def main():
         body = body.replace("'%s'" % asset, "'%s'" % uri)
         body = body.replace('"%s"' % asset, '"%s"' % uri)
 
+    # A single file cannot resolve sibling paths, so inline the one icon worth
+    # keeping and drop the links that would only 404.
+    svg = ROOT / 'favicon.svg'
+    if svg.exists():
+        uri = 'data:image/svg+xml;base64,' + base64.b64encode(svg.read_bytes()).decode()
+        html = re.sub(r'<link rel="icon" href="favicon\.svg"[^>]*>',
+                      '<link rel="icon" href="%s" type="image/svg+xml">' % uri, html)
+    html = re.sub(r'<link rel="icon" href="(?!data:)[^"]*"[^>]*>\s*', '', html)
+    html = re.sub(r'<link rel="apple-touch-icon"[^>]*>\s*', '', html)
+    html = re.sub(r'<link rel="manifest"[^>]*>\s*', '', html)
+
     html = html.replace('<link rel="stylesheet" href="src/core/style.css">',
                         '<style>\n' + css + '\n</style>')
     html = html.replace('<script type="module" src="src/core/app.js"></script>',

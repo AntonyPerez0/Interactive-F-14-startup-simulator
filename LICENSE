@@ -1,0 +1,36 @@
+MIT License, for the code only
+
+Copyright (c) 2026 the DCS Cockpit Trainer contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+----------------------------------------------------------------------
+
+NOT COVERED BY THIS LICENCE
+
+The cockpit photographs under assets/f14b/ are screenshots of DCS World and are
+the property of Eagle Dynamics and Heatblur Simulations. They are not ours to
+license and are not granted to you by the terms above. If you fork this, replace
+them or obtain permission yourself.
+
+The Virtual Weapons Academy insignia under assets/brand/ belongs to that
+squadron and is used with their involvement in the project. It is not covered
+either.
+
+Everything else -- the simulation, the checklist engine, the interface, the
+tests and the tooling -- is offered under the MIT terms above.

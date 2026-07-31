@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 8000",
-    "test": "node tests/all.js && node tools/audit-review.mjs",
+    "test": "node tests/all.js && node tools/audit-review.mjs && node tests/a11y.mjs && python3 tools/bundle.py && node tests/bundle-smoke.mjs",
     "bundle": "python3 tools/bundle.py",
-    "audit": "node tools/audit-review.mjs"
+    "audit": "node tools/audit-review.mjs",
+    "a11y": "node tests/a11y.mjs",
+    "bundle-test": "python3 tools/bundle.py && node tests/bundle-smoke.mjs"
   }
 }

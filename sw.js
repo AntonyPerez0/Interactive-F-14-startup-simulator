@@ -6,12 +6,26 @@
 
    Version is a hash of file contents, so any edit invalidates the old cache.
    Regenerate with: python3 tools/build-sw.py */
-const CACHE = 'dcs-trainer-ecc19bc6';
+const CACHE = 'dcs-trainer-4781e5db';
 const SHELL = [
-  "./index.html",
-  "./manifest.webmanifest",
+  "./assets/brand/og-card.png",
+  "./assets/brand/vwa-144.png",
+  "./assets/f14b/pilot-consoles.jpg",
+  "./assets/f14b/pilot-front.jpg",
+  "./assets/f14b/rio-centre.jpg",
+  "./assets/f14b/rio-left.jpg",
+  "./assets/f14b/rio-right.jpg",
+  "./assets/icons/apple-touch-icon.png",
+  "./assets/icons/favicon-16.png",
+  "./assets/icons/favicon-32.png",
+  "./assets/icons/favicon-48.png",
+  "./assets/icons/icon-192.png",
+  "./assets/icons/icon-512.png",
+  "./assets/icons/icon-maskable-512.png",
   "./favicon.ico",
   "./favicon.svg",
+  "./index.html",
+  "./manifest.webmanifest",
   "./src/aircraft/f14b/controls.js",
   "./src/aircraft/f14b/gauges.js",
   "./src/aircraft/f14b/index.js",
@@ -31,6 +45,7 @@ const SHELL = [
   "./src/aircraft/f14b/systems.js",
   "./src/aircraft/registry.js",
   "./src/core/app.js",
+  "./src/core/build.js",
   "./src/core/checklist.js",
   "./src/core/config.js",
   "./src/core/dom.js",
@@ -39,21 +54,8 @@ const SHELL = [
   "./src/core/presence.js",
   "./src/core/sim.js",
   "./src/core/stats.js",
-  "./src/core/views.js",
   "./src/core/style.css",
-  "./assets/f14b/pilot-consoles.jpg",
-  "./assets/f14b/pilot-front.jpg",
-  "./assets/f14b/rio-centre.jpg",
-  "./assets/f14b/rio-left.jpg",
-  "./assets/f14b/rio-right.jpg",
-  "./assets/brand/vwa-144.png",
-  "./assets/icons/apple-touch-icon.png",
-  "./assets/icons/favicon-16.png",
-  "./assets/icons/favicon-32.png",
-  "./assets/icons/favicon-48.png",
-  "./assets/icons/icon-192.png",
-  "./assets/icons/icon-512.png",
-  "./assets/icons/icon-maskable-512.png"
+  "./src/core/views.js"
 ];
 const STATIC = /\/assets\//;                 // big, immutable
 

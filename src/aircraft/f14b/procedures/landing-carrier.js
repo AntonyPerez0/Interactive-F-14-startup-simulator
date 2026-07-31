@@ -73,8 +73,9 @@ export const steps = [
 
 /* ============ 4. configure on the downwind ============ */
 { g:'4 · Configure', t:'At <b>300 kt</b> — wings to <b>AUTO</b>, let them come forward',
-  note:'Any slower with the wings back and you will fall like a brick.',
-  tgt:'wingSweep', view:'consoles', done:s=>s.sw.wingSweep==='detent'&&s.sweep<=20.5 },
+  note:'Thumb switch forward — the CADC takes them back to 20° on its own. Any slower with the wings back and you will fall like a brick.',
+  tgt:'sweepThumb', ctx:['wingSweep'], view:'consoles',
+  done:s=>s.sw.wingSweep==='detent'&&s.sweep<=20.5 },
 { g:'4 · Configure', t:'At <b>250 kt</b> — <b>gear down</b>',
   tgt:'gearHandle', view:'front', done:s=>s.sw.gearHandle==='down' },
 { g:'4 · Configure', t:'At <b>200 kt</b> — <b>flaps down</b>',

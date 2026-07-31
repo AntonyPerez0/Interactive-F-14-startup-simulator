@@ -27,9 +27,9 @@ export function createViews(sim, ac) {
       const world = $('#world');
       ac.views.forEach((v, i) => {
         const img = el('img');
-        img.src = v.src;
         img.alt = ac.name + ' — ' + v.label;
         img.style.display = i === 0 ? 'block' : 'none';
+        img.src = v.src;
         world.insertBefore(img, $('#overlay'));
         this.imgs[v.id] = img;
       });

@@ -384,13 +384,17 @@ function frame(now) {
     : (cur ? cur.t.replace(/<[^>]+>/g, '') : '—');
   cautionLamps.forEach(c => { c.node.classList.toggle('on', !!S.caution[c.id]); });
   requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
 P.onCounts(() => { if ($('#menu').classList.contains('open')) menu.render(); });
 P.start();
 
 /* Offline support, so it keeps working with no signal and can be installed to a
    home screen. Only over https or localhost — a file:// open has no worker. */
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
-}
-requestAnimationFrame(frame);
+try {
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    // .catch only handles a rejection; in a sandboxed frame this throws outright
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+} catch (e) { /* no worker here, and that is fine */ }

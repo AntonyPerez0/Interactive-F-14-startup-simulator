@@ -19,6 +19,20 @@ const BEAT      = 45000;    // normal interval
 const MIN_GAP   = 10000;    // no two requests closer than this, ever
 const MAX_CALLS = 200;      // per page load; a 45 s beat uses 80 in a whole hour
 const KEY = 'dcs-trainer-visitor';
+const OPT = 'dcs-trainer-no-count';
+
+/* Honouring a refusal is itself strictly necessary, so this one flag is kept
+   whatever the answer. */
+export const countingOff = () => {
+  try { return localStorage.getItem(OPT) === '1'; } catch (e) { return false; }
+};
+
+export function setCounting(on) {
+  try {
+    if (on) localStorage.removeItem(OPT);
+    else { localStorage.setItem(OPT, '1'); localStorage.removeItem(KEY); }
+  } catch (e) { /* nothing we can do */ }
+}
 
 function visitorId() {
   try {
@@ -31,7 +45,7 @@ function visitorId() {
 }
 
 export function createPresence(url) {
-  if (!url) return { counts:{}, onCounts() {}, refresh() {}, start() {}, stop() {} };
+  if (!url || countingOff()) return { counts:{}, onCounts() {}, refresh() {}, start() {}, stop() {} };
 
   const id = visitorId();
   const counts = { online: null, month: null, total: null };
