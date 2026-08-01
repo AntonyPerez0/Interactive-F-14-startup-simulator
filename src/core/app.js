@@ -10,6 +10,7 @@ import { createChecklist } from './checklist.js';
 import { createKneecard } from './kneecard.js';
 import { createStats, mmss } from './stats.js';
 import { createPresence } from './presence.js';
+import { createAudio } from './audio.js';
 import { PRESENCE_URL } from './config.js';
 import { createMenu } from './menu.js';
 import { catalogue, byId } from '../aircraft/registry.js';
@@ -66,6 +67,94 @@ const cautionLamps = ac.cautions.map(([id, label]) => {
 });
 
 /* ---------------- procedures, chosen from the home screen ---------------- */
+const A = createAudio();
+let lastSeeker = null;
+
+/* What a control sounds like depends on what it is. A rotary detent, a covered
+   guard and a throttle lever are three different noises in the real cockpit. */
+function soundFor(id) {
+  const c = ac.controls.find(x => x.id === id);
+  if (!c) return 'click';
+  if (c.guard) return 'guard';
+  if (c.kind === 'knob') return 'detent';
+  if (c.kind === 'push') return 'push';
+  if (c.kind === 'lever') return 'lever';
+  return 'click';
+}
+
+/* Sound settings. One chip instead of three, because the top bar is already
+   full on a phone. Browsers will not start audio outside a click, so enabling
+   has to happen inside these handlers. */
+{
+  const chip = $('#soundchip');
+  const panel = $('#soundpanel');
+  const onBtn = $('#sp_on');
+  const crewBtn = $('#sp_crew');
+  const vol = $('#sp_vol');
+
+  const paint = () => {
+    chip.textContent = A.on ? 'SOUND' : 'MUTED';
+    chip.classList.toggle('on', A.on);
+    $('#sp_onv').textContent = A.on ? 'ON' : 'OFF';
+    onBtn.classList.toggle('yes', A.on);
+
+    const ready = A.voiceReady;
+    crewBtn.disabled = !ready;
+    $('#sp_crewv').textContent = !ready ? 'NONE' : (A.speaking ? 'ON' : 'OFF');
+    crewBtn.classList.toggle('yes', ready && A.speaking);
+    crewBtn.title = ready ? '' : 'This browser has no speech voices available';
+
+    vol.value = Math.round(A.volume * 100);
+    vol.disabled = !A.on;
+  };
+
+  const open = want => {
+    panel.hidden = !want;
+    chip.setAttribute('aria-expanded', want ? 'true' : 'false');
+    if (want) paint();
+  };
+
+  chip.onclick = e => { e.stopPropagation(); open(panel.hidden); };
+  onBtn.onclick = () => { A.enable(!A.on); paint(); };
+  crewBtn.onclick = () => { A.setSpeaking(!A.speaking); paint(); };
+  vol.oninput = () => {
+    A.setVolume(vol.value / 100);
+    // a tick to hear what the new level sounds like
+    A.play('detent');
+  };
+
+  /* Repaint after the first interaction, since that is when a remembered
+     "on" actually becomes audible. */
+  ['pointerdown', 'keydown'].forEach(e =>
+    document.addEventListener(e, () => setTimeout(paint, 0), { once: true, capture: true }));
+
+  panel.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', () => { if (!panel.hidden) open(false); });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches && e.target.matches('input, textarea')) return;
+    if (e.key === 'Escape' && !panel.hidden) open(false);
+    if (e.key === 'm' || e.key === 'M') { A.enable(!A.on); paint(); }
+  });
+
+  if (typeof speechSynthesis !== 'undefined' && speechSynthesis.addEventListener) {
+    speechSynthesis.addEventListener('voiceschanged', paint);
+  }
+  paint();
+}
+
+/* Tones follow the messages the sim already emits, so nothing new is plumbed
+   through the aircraft files. */
+sim.on((msg, kind) => {
+  if (kind === 'bad')  A.play('warning');
+  else if (kind === 'good') A.play('good');
+  if (/fox|away|launch/i.test(msg)) A.play('launch');
+
+  /* Only crew speech gets voiced. The rest of the messages are narration and
+     would be exhausting read aloud. */
+  const said = /^(Jester|Pilot|Ground|Deck)\s*:\s*(.+)$/i.exec(msg);
+  if (said) A.say(said[1].toLowerCase(), said[2]);
+});
+
 const P = createPresence(PRESENCE_URL);
 const menu = createMenu(catalogue, (_ac, procedure) => startProcedure(procedure), ST, P);
 
@@ -133,6 +222,7 @@ const onClick = (e, dir) => {
     const r = hs.getBoundingClientRect();
     frac = (e.clientY - r.top) / r.height;
   }
+  A.play(soundFor(c.id));
   sim.click(c.id, dir, frac);
 };
 $('#world').addEventListener('click', e => {
@@ -147,11 +237,11 @@ KB.mount();
 /* the tray is rebuilt per procedure, so listen on the stage instead of on it */
 $('#stage').addEventListener('click', e => {
   const b = e.target.closest('button[data-tray]');
-  if (b) sim.click(b.dataset.tray, tapDir);
+  if (b) { A.play(soundFor(b.dataset.tray)); sim.click(b.dataset.tray, tapDir); }
 });
 $('#stage').addEventListener('contextmenu', e => {
   const b = e.target.closest('button[data-tray]');
-  if (b) { e.preventDefault(); sim.click(b.dataset.tray, -1); }
+  if (b) { e.preventDefault(); A.play(soundFor(b.dataset.tray)); sim.click(b.dataset.tray, -1); }
 });
 
 /* pan, zoom, drag-to-calibrate */
@@ -383,6 +473,16 @@ function frame(now) {
   $('#stepbarT').textContent = K.completed ? 'Complete'
     : (cur ? cur.t.replace(/<[^>]+>/g, '') : '—');
   cautionLamps.forEach(c => { c.node.classList.toggle('on', !!S.caution[c.id]); });
+
+  /* The bed rises with the engines: nothing cold and dark, a little on
+     electrical power, more once they are turning. */
+  const spool = Math.min(1, (S.eng.L.n2 + S.eng.R.n2) / 180);
+  A.ambient(S.power ? 0.25 + spool * 0.75 : 0);
+
+  // the Sidewinder seeker, if one is looking
+  const seeker = S.sw.weaponSel === 'sw' && S.sw.masterArm === 'on'
+    ? (S.sw.cageSeam === 'seam' ? 'lock' : 'growl') : null;
+  if (seeker !== lastSeeker) { A.growl(seeker); lastSeeker = seeker; }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

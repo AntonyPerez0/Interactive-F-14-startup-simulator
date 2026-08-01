@@ -577,3 +577,32 @@ body.edit #editbar{display:flex}
 .buildstamp{margin-top:14px;font-family:var(--data);font-size:10px;letter-spacing:.08em;
   color:#394743}
 @media (max-width:820px){ .footlinks{gap:20px;row-gap:10px} }
+
+/* ---------- the sound toggle ---------- */
+#soundchip{min-width:62px;text-align:center}
+#soundchip.on{color:var(--phos);border-color:var(--phos-dim);background:#0d1f14}
+
+#voicechip.on{color:var(--phos);border-color:var(--phos-dim);background:#0d1f14}
+
+/* ---------- sound settings panel ---------- */
+#soundchip{min-width:62px;text-align:center}
+#soundpanel{position:absolute;top:44px;right:10px;z-index:60;width:214px;
+  background:#0d1517;border:1px solid var(--seam-hi);border-radius:4px;
+  padding:6px;box-shadow:0 10px 26px rgba(0,0,0,.6)}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;padding:9px 10px;border:0;background:none;color:var(--txt-dim);
+  font-size:10px;letter-spacing:.14em;text-transform:uppercase;text-align:left}
+button.srow{cursor:pointer;border-radius:3px}
+button.srow:hover{background:#132022;color:var(--txt)}
+button.srow:disabled{opacity:.4;cursor:default}
+button.srow:disabled:hover{background:none;color:var(--txt-dim)}
+.srow b{font-family:var(--data);font-size:11px;letter-spacing:.06em;color:#5b6b66}
+.srow.yes b{color:var(--phos)}
+#sp_vol{flex:1 1 auto;max-width:104px;accent-color:var(--phos);background:transparent}
+#sp_vol:disabled{opacity:.35}
+.sfine{margin:6px 10px 4px;font-size:10px;letter-spacing:.06em;color:#3f4f4b;
+  text-transform:none}
+@media (max-width:820px){
+  #soundpanel{right:6px;width:196px}
+  .sfine{display:none}   /* no keyboard to press M with */
+}

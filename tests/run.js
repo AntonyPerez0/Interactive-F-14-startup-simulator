@@ -1242,6 +1242,179 @@ head('Knob detents');
        /rel="manifest"/.test(bundler) && /rel="apple-touch-icon"/.test(bundler));
   }
 
+  /* Sound. The safety properties matter more than the sounds themselves: this
+     runs in headphones, and a clipped envelope is the one thing here that could
+     actually hurt someone. */
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const au  = rf(new URL('../src/core/audio.js', import.meta.url), 'utf8');
+    const app = rf(new URL('../src/core/app.js', import.meta.url), 'utf8');
+
+    ok('nothing is sampled from the game', !/\.(mp3|ogg|wav|m4a)/i.test(au));
+    ok('there is a limiter before the output',
+       /createDynamicsCompressor/.test(au) && /limiter\)\.connect\(ctx\.destination\)/.test(au));
+    const cap = parseFloat(/MAX_GAIN\s*=\s*([\d.]+)/.exec(au)[1]);
+    ok('the master spans a usable range', cap > 0.5 && cap <= 1, cap.toString());
+
+    /* The first version set the limiter threshold at -18 dB, which squashed the
+       whole mix rather than catching peaks, and everything came out at a
+       whisper. A limiter belongs near the top. */
+    const thr = parseFloat(/limiter\.threshold\.value = (-?[\d.]+)/.exec(au)[1]);
+    ok('the limiter guards the top, not the middle', thr >= -9 && thr <= -3, thr + ' dB');
+    const ratio = parseFloat(/limiter\.ratio\.value = ([\d.]+)/.exec(au)[1]);
+    ok('and it still limits hard when it does engage', ratio >= 8, ratio + ':1');
+
+    /* Levels, so nothing drifts back to inaudible or lurches into loud. */
+    const dbOf = peak => 20 * Math.log10(peak * cap * 0.7);
+    const click = parseFloat(/click:\s+\(\) => \{ hit\(\{[^}]*peak: ([\d.]+)/.exec(au)[1]);
+    ok('switch clicks are clearly audible', dbOf(click) > -14, dbOf(click).toFixed(1) + ' dB');
+    ok('but not shouting', dbOf(click) < -4, dbOf(click).toFixed(1) + ' dB');
+    const loudest = Math.max(...[...au.matchAll(/peak: ([\d.]+)/g)].map(m => +m[1]));
+    ok('no voice can reach full scale', loudest * cap <= 0.8, loudest.toFixed(2));
+
+    /* The mistake sound fires while someone is learning, so it must inform
+       rather than alarm. Startle comes from a fast attack, energy in the
+       2-4 kHz band, and repetition — so all three are checked. */
+    // the block runs from 'warning:' to the next voice in the table
+    const warn = au.slice(au.indexOf('warning: () =>'),
+                          au.indexOf('good:', au.indexOf('warning: () =>')));
+    const wPeak = Math.max(...[...warn.matchAll(/peak: ([\d.]+)/g)].map(m => +m[1]));
+    ok('a mistake is quieter than a switch click', dbOf(wPeak) < dbOf(click) - 6,
+       dbOf(wPeak).toFixed(1) + ' dB against ' + dbOf(click).toFixed(1) + ' dB');
+    const wAttack = Math.min(...[...warn.matchAll(/attack: ([\d.]+)/g)].map(m => +m[1]));
+    ok('and swells rather than snapping', wAttack >= 0.05, (wAttack * 1000).toFixed(0) + ' ms');
+    const wFreq = Math.max(...[...warn.matchAll(/freq: (\d+)/g)].map(m => +m[1]));
+    const wBright = Math.max(...[...warn.matchAll(/bright: ([\d.]+)/g)].map(m => +m[1]));
+    ok('it stays out of the ear\'s sensitive band', wFreq * wBright < 800,
+       Math.round(wFreq * wBright) + ' Hz');
+    ok('and does not nag', (warn.match(/buzz\(/g) || []).length <= 2,
+       (warn.match(/buzz\(/g) || []).length + ' repeats');
+    ok('volume cannot be pushed past it',
+       /Math\.min\(1, Math\.max\(0, v\)\)/.test(au) && /MAX_GAIN \* vol/.test(au));
+
+    ok('every gain change is ramped, so nothing clicks',
+       /linearRampToValueAtTime/.test(au) && /exponentialRampToValueAtTime/.test(au));
+    ok('no envelope starts at zero on an exponential ramp',
+       !/exponentialRampToValueAtTime\(0,/.test(au));
+
+    ok('the bed is low passed away from the harsh band',
+       /lowpass/.test(au) && /frequency\.value = 3[0-9]{2}/.test(au));
+    ok('the growl is kept out of the harsh band too',
+       /lp\.frequency\.value = 1[0-9]{3}/.test(au));
+
+    ok('it starts off and remembers the answer',
+       /KEY_ON, '0'\) === '1'/.test(au) && /store\.set\(KEY_ON/.test(au));
+    ok('enabling happens inside a click handler',
+       /onBtn\.onclick = \(\) => \{ A\.enable/.test(app));
+    ok('a missing AudioContext is survivable', /if \(!AC\) return false/.test(au));
+    ok('private mode cannot break it', /catch \(e\) \{ \/\* private mode \*\/ \}/.test(au));
+
+    /* The bed was inaudible: 0.055 through a 0.34 master is about -38 dB. */
+    const amb = parseFloat(/AMBIENT\s*=\s*([\d.]+)/.exec(au)[1]);
+    const db = dbOf(amb);
+    ok('the bed is actually audible', db > -26, db.toFixed(0) + ' dB at default volume');
+    ok('but sits under the effects', db < -14 && db < dbOf(click) - 6,
+       db.toFixed(0) + ' dB against ' + dbOf(click).toFixed(0) + ' dB');
+
+    /* Mechanical, not digital: switchgear is filtered noise, not an oscillator. */
+    ok('switch sounds are noise transients, not tones',
+       /createBufferSource\(\)[\s\S]{0,200}bandpass/.test(au));
+    ok('no two clicks are identical', /playbackRate\.value = 0\.8 \+ Math\.random/.test(au));
+    ok('warnings are buzzers rather than beeps',
+       /function buzz/.test(au) && /sawtooth/.test(au) && /chop/.test(au));
+    ok('a launch is a whoosh, not a note', /launch:[\s\S]{0,90}sweep: 180/.test(au));
+
+    /* Every control makes a noise, and the noise suits the control. */
+    ok('clicking a control makes a sound', (app.match(/A\.play\(soundFor\(/g) || []).length >= 3,
+       (app.match(/A\.play\(soundFor\(/g) || []).length + ' click paths');
+    ok('knobs, buttons, guards and levers differ',
+       /kind === 'knob'/.test(app) && /c\.guard/.test(app) && /kind === 'lever'/.test(app));
+
+    /* Crew speech. Browser synthesis, so nothing is downloaded and no one's
+       voice work is being redistributed. */
+    ok('speech uses the browser, not audio files',
+       /SpeechSynthesisUtterance/.test(au) && !/\.(mp3|ogg|wav)/i.test(au));
+    ok('only crew lines are voiced, not narration',
+       /\^\(Jester\|Pilot\|Ground\|Deck\)/.test(app));
+    ok('the speaker sets the voice', /CREW = \{[\s\S]{0,300}jester/.test(au));
+
+    /* The first version preferred localService voices, which are the old
+       robotic ones. Quality markers should win instead. */
+    ok('voices are scored, not guessed at', /function scoreVoice/.test(au));
+    ok('modern neural voices are preferred',
+       /natural\|neural\|premium\|enhanced\|online/i.test(au));
+    ok('and the tinny ones are pushed down', /compact\|espeak\|pico/i.test(au));
+    ok('it no longer prefers local voices on principle',
+       !/en\.find\(v => v\.localService\)/.test(au));
+
+    /* Jargon read literally is the giveaway. */
+    ok('aviation jargon is respelled for speech', /const SPOKEN = \[/.test(au));
+    ok('AWG-9 is not read as a subtraction', /A W G nine/.test(au));
+    ok('AIM-54 is not read as fifty four', /AIM fifty four/.test(au));
+    ok('units are spoken as words', /'knots'/.test(au) && /'feet'/.test(au));
+
+    /* A noisy channel is what makes synthetic speech pass as a radio call. */
+    ok('speech runs over a radio carrier', /function openCarrier/.test(au));
+    ok('the carrier is band limited to comms',
+       /highpass'; hp\.frequency\.value = 3[0-9]{2}/.test(au) &&
+       /lowpass'; lp\.frequency\.value = 2[0-9]{3}/.test(au));
+    ok('the cockpit ducks while someone talks', /AMBIENT \* 0\.45/.test(au));
+    ok('a dropped onend cannot leave the carrier open', /setTimeout\(finish/.test(au));
+    ok('a radio click brackets each line',
+       /squelch in[\s\S]{0,120}hit\(/.test(au) && /squelch out/.test(au));
+    ok('speech volume is capped', /Math\.min\(0\.75, vol \* 0\.95\)/.test(au));
+    ok('only one voice at a time', /speechSynthesis\.cancel\(\)/.test(au));
+    /* Chrome silently drops an utterance queued in the same tick as a cancel. */
+    ok('cancel and speak are not in the same tick',
+       /speechSynthesis\.speaking \|\| speechSynthesis\.pending/.test(au) &&
+       /setTimeout\(\(\) => \{ try \{ speechSynthesis\.speak/.test(au));
+    ok('it can tell whether speech will work at all', /function speechAvailable/.test(au));
+    ok('and says so rather than failing silently', /'NONE'/.test(app));
+    ok('the toggle is disabled when there are no voices', /crewBtn\.disabled = !ready/.test(app));
+    ok('voices arriving late repaint the panel', /voiceschanged', paint/.test(app));
+
+    /* Volume. The module could always set it; there was no way for anyone to. */
+    const css3 = rf(new URL('../src/core/style.css', import.meta.url), 'utf8');
+    ok('there is a volume control', /id="sp_vol"/.test(rf(new URL('../index.html', import.meta.url), 'utf8')));
+    ok('moving it sets the volume', /A\.setVolume\(vol\.value \/ 100\)/.test(app));
+    ok('and it is audible while you drag', /A\.play\('detent'\)/.test(app));
+    ok('the setting survives a reload', /KEY_VOL/.test(au) && /store\.set\(KEY_VOL/.test(au));
+    ok('it still cannot exceed the cap', /MAX_GAIN \* vol/.test(au));
+    ok('the slider is disabled when muted', /vol\.disabled = !A\.on/.test(app));
+
+    /* The panel replaced two chips, so the top bar did not grow. */
+    ok('one chip opens the lot', /chip\.onclick = e => \{ e\.stopPropagation\(\); open/.test(app));
+    ok('clicking away closes it', /if \(!panel\.hidden\) open\(false\)/.test(app));
+    ok('escape closes it too', /e\.key === 'Escape'/.test(app));
+    ok('M mutes without opening anything', /e\.key === 'm' \|\| e\.key === 'M'/.test(app));
+    ok('typing in a field does not mute', /matches\('input, textarea'\)/.test(app));
+    ok('the panel is announced as a dialog', /role="dialog"/.test(rf(new URL('../index.html', import.meta.url), 'utf8')));
+    ok('and the chip says whether it is open', /aria-expanded/.test(app));
+    ok('the volume row is styled', /#sp_vol\{/.test(css3));
+
+    ok('missing voices cannot break it',
+       /typeof speechSynthesis === 'undefined'/.test(au) && /catch \(e\)/.test(au));
+    ok('it can be silenced separately from the switches',
+       /setSpeaking/.test(au) && /sp_crew/.test(app));
+    ok('and the choice is remembered', /KEY_VOICE/.test(au));
+
+    /* A remembered "on" is not enough: browsers need a gesture, so sound that
+       was left enabled stayed silent until it was toggled off and on again. */
+    ok('a remembered on wakes on the first gesture',
+       /if \(on\) armFirstGesture\(\);/.test(au));
+    ok('it listens for touch as well as click and key',
+       /pointerdown', 'keydown', 'touchstart'/.test(au));
+    ok('and stops listening once it has woken',
+       /removeEventListener\(e, go, true\)/.test(au));
+    ok('a suspended context is resumed', /ctx\.state === 'suspended'/.test(au));
+    ok('coming back to the tab resumes it too',
+       /visibilitychange[\s\S]{0,160}ctx\.resume/.test(au));
+    ok('the panel can tell running from merely enabled', /get live\(\)/.test(au));
+
+    ok('the bed follows the engines', /A\.ambient\(S\.power/.test(app));
+    ok('and is silent in a cold jet', /S\.power \? 0\.25/.test(app));
+  }
+
   // the things that make it a project rather than a file
   {
     const { readFileSync: rf } = await import('node:fs');
@@ -1345,6 +1518,27 @@ head('Knob detents');
     ok('the two eras are balanced now',
        AC_CATALOGUE.filter(c => c.cat === 'Modern jets').length === 9 &&
        AC_CATALOGUE.filter(c => c.cat === 'Cold War jets').length === 9);
+  }
+
+  /* The TID sat inside its bezel rather than filling it, and was drawn at 92%
+     opacity — so the symbology printed on the photograph read through from
+     underneath. Both were measured off the source photo. */
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const views = rf(new URL('../src/core/views.js', import.meta.url), 'utf8');
+    const g = AC.gauges.find(x => x.id.startsWith('scTid'));
+    ok('the TID is a square round CRT', g.w === g.h && g.round === true,
+       g.w + 'x' + g.h);
+    ok('it is inside the frame', g.x + g.w <= 1920 && g.y + g.h <= 1080);
+    ok('a lit screen is fully opaque', !/opacity = 0\.9/.test(views));
+    ok('nothing shows through from the photo',
+       !/background = [^;]*rgba\([^)]*,\s*0?\.\d/.test(views));
+
+    const clash = AC.controls
+      .filter(c => !c.tray && c.x != null && (AC.sharedViews[c.view] || [c.view]).includes(g.view))
+      .filter(c => Math.min(g.x + g.w, c.x + c.w) - Math.max(g.x, c.x) > 2 &&
+                   Math.min(g.y + g.h, c.y + c.h) - Math.max(g.y, c.y) > 2);
+    ok('growing it did not swallow a control', clash.length === 0, clash.map(c => c.id).join(', '));
   }
 
   // the squadron mark

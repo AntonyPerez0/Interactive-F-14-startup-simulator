@@ -36,6 +36,8 @@
   <div id="brand"><b data-brand>F-14B</b><span>Cockpit Trainer</span></div>
   <div class="tabs" id="tabs"></div>
   <div id="topright">
+    <button class="chip" id="soundchip" title="Sound settings" aria-label="Sound settings"
+            aria-expanded="false" aria-controls="soundpanel">SOUND</button>
     <button class="chip" id="timechip" title="Time compression" aria-label="Time compression">1×</button>
     <button class="chip" id="dirchip" title="Which way a tap moves a switch">Tap ▲</button>
     <button class="chip" id="labelchip">Labels</button>
@@ -44,6 +46,15 @@
 </div>
 
 <div id="main">
+  <div id="soundpanel" hidden role="dialog" aria-label="Sound settings">
+    <button class="srow" id="sp_on" aria-label="Toggle cockpit sound"><span>Cockpit sound</span><b id="sp_onv">OFF</b></button>
+    <div class="srow"><span>Volume</span>
+      <input type="range" id="sp_vol" min="0" max="100" step="5" value="70"
+             aria-label="Volume"></div>
+    <button class="srow" id="sp_crew" aria-label="Toggle crew voices"><span>Crew voices</span><b id="sp_crewv">ON</b></button>
+    <p class="sfine">Press M to mute.</p>
+  </div>
+
   <div id="stage">
     <div id="viewport"><div id="world"><div id="overlay"></div></div></div>
     <div id="toast"></div>

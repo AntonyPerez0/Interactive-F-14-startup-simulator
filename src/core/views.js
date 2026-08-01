@@ -112,10 +112,13 @@ export function createViews(sim, ac) {
           n.appendChild(el('b'));
 
         } else if (g.kind === 'screen') {
+          /* Opaque. These sit on top of a photograph that has its own symbology
+             printed on it, and anything less than solid lets that read through
+             underneath ours. */
           n.style.background = g.led
             ? 'linear-gradient(180deg,#160b08,#0b0605 60%,#100807)'
-            : 'linear-gradient(160deg,#0d100f,#050707 55%,#080a09)';
-          n.style.boxShadow = 'inset 0 0 24px rgba(0,0,0,.92),inset 0 1px 0 rgba(255,255,255,.05)';
+            : 'radial-gradient(120% 120% at 50% 8%,#0e1211 0%,#070a09 55%,#040605 100%)';
+          n.style.boxShadow = 'inset 0 0 30px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.06)';
           n.style.borderRadius = g.round ? '50%' : '5px';
           n.style.transition = 'opacity .25s';
           n.style.pointerEvents = 'none';
@@ -348,7 +351,7 @@ export function createViews(sim, ac) {
             tl.style.display = tracksUp ? 'block' : 'none';
             n.style.pointerEvents = tracksUp ? 'auto' : 'none';
             if (tracksUp) {
-              n.style.opacity = 0.92;
+              n.style.opacity = 1;
               const seen = B.contacts.filter(c => c.tracked);
               const key = seen.map(c => c.id).join(',');
               if (tl.dataset.key !== key) {
@@ -385,7 +388,7 @@ export function createViews(sim, ac) {
             const show = lit && tidRepeat && !tracksUp;
             ip.style.display = show ? 'block' : 'none';
             if (show) {
-              n.style.opacity = 0.92;
+              n.style.opacity = 1;
               const pct = ac.insCaret(S);
               ip.querySelector('[data-ins="caret"]').style.left = (7 + pct * 86) + '%';
               // the guide: the number is minutes in tenths, 23 = 2.3 min
