@@ -177,6 +177,15 @@ export const controls = [
     states:['in','out'], lab:{in:'IN',out:'OUT'}, init:'in' },
   { id:'dlc', tray:true, kind:'lever', name:'DLC THUMBWHEEL (stick)',
     states:['off','on'], lab:{off:'OFF',on:'ENGAGED'}, init:'off' },
+  /* Left vertical console. Three positions, spring-loaded to OFF:
+       KNEEL — releases strut pressure, retracts the strut and unlocks the launch bar
+       OFF   — no strut movement
+       EXTD  — extends the strut, raises and locks the launch bar
+     In the tray because I have no measured position for it on the photos. */
+  { id:'noseStrut', tray:true, kind:'sw', name:'NOSE STRUT',
+    states:['kneel','off','extd'],
+    lab:{ kneel:'KNEEL \u00b7 launch bar unlocked', off:'OFF', extd:'EXTD \u00b7 bar up and locked' },
+    init:'off' },
   { id:'sweepThumb', tray:true, kind:'lever', name:'WING SWEEP THUMB SWITCH (stick)',
     states:['fwd','aft'], lab:{fwd:'FWD · 20°',aft:'AFT · 68°'}, init:'fwd' },
   { id:'ejectSeat', tray:true, kind:'lever', name:'EJECTION SEAT',

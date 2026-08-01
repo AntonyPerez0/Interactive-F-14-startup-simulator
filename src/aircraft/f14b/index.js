@@ -10,6 +10,7 @@ import { gauges, TAPE_CH } from './gauges.js';
 import * as systems from './systems.js';
 
 import * as pilotStart  from './procedures/pilot-start.js';
+import * as pilotStartCv from './procedures/pilot-start-carrier.js';
 import * as rioShore    from './procedures/rio-align-shore.js';
 import * as rioCarrier  from './procedures/rio-align-carrier.js';
 import * as landShore   from './procedures/landing-shore.js';
@@ -57,7 +58,7 @@ export default {
   autopilot: systems.AUTOPILOT,
 
   /* numbered here so no procedure file can forget, and an explicit n still wins */
-  procedures: [pilotStart, rioShore, rioCarrier, landShore, landCarrier,
+  procedures: [pilotStart, pilotStartCv, rioShore, rioCarrier, landShore, landCarrier,
                aaGun, aaSidewinder, aaSparrow, aaPhoenixStt, aaPhoenixTws,
                shutPilot, shutRio]
     .map(p => ({ ...p, steps: p.steps.map((s, i) => ({ n: i + 1, ...s })) })),

@@ -27,6 +27,11 @@ const ok  = (label, cond, detail = '') => {
 const head = t => console.log('\n' + t + '\n' + '-'.repeat(t.length));
 
 const AC = aircraft[0];
+
+/* Named, not indexed. Inserting a procedure used to silently repoint every
+   AC.procedures[n] in this file at the wrong drill. */
+const PILOT_START = AC.procedures.find(p => p.meta.id === 'pilot-start');
+const RIO_SHORE   = AC.procedures.find(p => p.meta.id === 'rio-shore');
 const C  = id => AC.controls.find(c => c.id === id);
 
 /* ---------------------------------------------------------------- helpers */
@@ -73,7 +78,7 @@ function harness(procedure) {
 /* ------------------------------------------------------- pilot start-up */
 head('Pilot cold start');
 {
-  const h = harness(AC.procedures[0]);
+  const h = harness(PILOT_START);
   const { S, run, click, to } = h;
 
   AC.radio(h.sim, 'gpuOn'); AC.radio(h.sim, 'airOn');
@@ -101,7 +106,7 @@ head('Pilot cold start');
   ok('Jester aligns unprompted', S.ins.complete);
 
   click('gunRate', -1); to('swCool','off'); to('mslPrep','off');
-  to('antiSkid','off'); to('afcsPitch','on'); to('afcsRoll','on'); to('afcsYaw','on');
+  to('antiSkid','spoiler'); to('afcsPitch','on'); to('afcsRoll','on'); to('afcsYaw','on');
   to('uhfFunc','both'); to('tacanFunc','tr'); to('ara63','on');
   click('radAltKnob'); S.rate = 16; run(60); S.rate = 1;
   ok('RADALT reads 0 after BIT', S.radalt.bitDone && Math.round(S.radalt.value) === 0);
@@ -113,7 +118,7 @@ head('Pilot cold start');
   ok('CADC reset by master reset', S.cadcReset);
 
   ok('all pilot steps complete', h.left().length === 0,
-     h.done.filter(Boolean).length + '/' + AC.procedures[0].steps.length);
+     h.done.filter(Boolean).length + '/' + PILOT_START.steps.length);
   h.left().forEach(s => console.log('           missed ' + s.n + '  ' + strip(s.t)));
 }
 
@@ -170,7 +175,7 @@ for (const proc of AC.procedures.filter(p => p.meta.crew === 'rio' && p.meta.pha
 /* ------------------------------------------------------- failure paths */
 head('Failure paths');
 {
-  const h = harness(AC.procedures[0]);
+  const h = harness(PILOT_START);
   const { S, run } = h;
   h.sim.click('engCrank', -1);
   ok('crank refused with no power', S.sw.engCrank === 'off');
@@ -182,7 +187,7 @@ head('Failure paths');
   ok('hung start logged as a fault', S.faults.some(f => /hung/i.test(f)));
 }
 {
-  const h = harness(AC.procedures[1]);
+  const h = harness(RIO_SHORE);
   const { S, run } = h;
   h.sim.click('cap1'); h.sim.click('capNE');
   '99999'.split('').forEach(d => h.sim.click('cap' + d));
@@ -191,7 +196,7 @@ head('Failure paths');
   ok('bad entry logged as a fault', S.faults.some(f => /CAP entry rejected/.test(f)));
 }
 {
-  const h = harness(AC.procedures[1]);
+  const h = harness(RIO_SHORE);
   const { S, run } = h;
   S.rioSeat = true; run(150);
   h.sim.set('liquidCool','fwd'); h.sim.set('wcsMode','stby'); run(45);
@@ -204,7 +209,7 @@ head('Failure paths');
 /* ------------------------------------------------- CAP entry cue sequence */
 head('CAP data entry cue');
 {
-  const shore = AC.procedures.find(p => p.meta.variant === 'shore');
+  const shore = RIO_SHORE;
   const cases = [
     ['Enter latitude',  ['capClear','cap1','capNE','cap2','cap5','cap0','cap1','cap4','capEnter']],
     ['Enter longitude', ['capClear','cap6','capNE','cap5','cap5','cap2','cap2','cap6','capEnter']],
@@ -272,7 +277,7 @@ head('Kneeboard');
 /* --------------------------------------------- corrections from review 2 */
 head('Systems corrections');
 {
-  const h = harness(AC.procedures[0]);
+  const h = harness(PILOT_START);
   const { S, run } = h;
   AC.radio(h.sim, 'gpuOn'); AC.radio(h.sim, 'airOn'); h.sim.set('airSource','off');
 
@@ -287,7 +292,7 @@ head('Systems corrections');
      'flt ' + S.hydFlt.toFixed(0) + '  cmb ' + S.hydComb.toFixed(0));
 
   // with the transfer pump in NORM one engine carries both systems
-  const h2 = harness(AC.procedures[0]);
+  const h2 = harness(PILOT_START);
   h2.sim.S.gpu = true; h2.sim.S.airCart = true; h2.sim.set('airSource','off');
   h2.sim.set('hydTransfer','norm');
   h2.sim.click('engCrank', -1); h2.run(14); h2.to('throttleR','idle'); h2.run(70);
@@ -299,7 +304,7 @@ head('Systems corrections');
   ok('strip reads CMB then FLT', /CMB \/ FLT/.test(cell.k), cell.k);
 }
 {
-  const h = harness(AC.procedures[0]);
+  const h = harness(PILOT_START);
   const { S } = h;
   S.gpu = true; h.run(0.2);
   h.sim.click('radAltKnob', 1);
@@ -314,7 +319,7 @@ head('Systems corrections');
   ok('it takes a couple of seconds to wind up', at > 2.0 && at < 3.2, 'peak at ' + at.toFixed(1) + 's');
 
   // time compression must not turn the self-test into a blink
-  const fast = harness(AC.procedures[0]);
+  const fast = harness(PILOT_START);
   fast.S.gpu = true; fast.run(0.2);
   fast.sim.click('radAltKnob', 1);
   fast.S.rate = 16;
@@ -327,7 +332,7 @@ head('Systems corrections');
 }
 {
   // alignment now runs to the DCS timings, with the caret in thirds
-  const h = harness(AC.procedures[1]);
+  const h = harness(RIO_SHORE);
   const { S, run } = h;
   S.rioSeat = true; run(150);
   h.to('liquidCool','awg9aim54'); h.to('wcsMode','stby');
@@ -348,7 +353,7 @@ head('Systems corrections');
 }
 {
   // STBY / READY follow the Heatblur table
-  const h = harness(AC.procedures[1]);
+  const h = harness(RIO_SHORE);
   const { S, run } = h;
   S.rioSeat = true; run(150);
   h.to('liquidCool','awg9aim54'); h.to('wcsMode','stby'); run(35);
@@ -850,7 +855,7 @@ for (const proc of AC.procedures.filter(p => p.meta.phase === 'shutdown')) {
 }
 {
   head('Shutdown versus a botched start');
-  const start = harness(AC.procedures[0]);
+  const start = harness(PILOT_START);
   start.S.gpu = true; start.S.airCart = true;
   start.sim.click('engCrank', -1); start.run(14);
   start.to('throttleR','idle'); start.run(70);
@@ -1466,7 +1471,22 @@ head('Knob detents');
     ok('the hangar says it is unofficial', /unofficial, non-commercial fan project/i.test(src));
     ok('and names who the artwork belongs to',
        /Eagle Dynamics/.test(src) && /Heatblur/.test(src));
-    ok('it is built once, outside the loop', (src.match(/'unofficial'/g) || []).length === 1);
+
+    /* The squadron reviewed it; they did not build it. Saying so protects them
+       as much as it clarifies things for anyone reading. */
+    ok('the footer says the squadron is not affiliated',
+       /not affiliated with the squadron/.test(src));
+    ok('and that the site is not theirs', /this site is not theirs/.test(src));
+    ok('while still recommending them', /Discord is well worth joining/.test(src));
+    ok('the squadron name links out',
+       /virtualweaponsacademy\.org\/" *' *\+\s*'target="_blank"/.test(src) ||
+       (src.match(/virtualweaponsacademy\.org/g) || []).length >= 2);
+    // two paragraphs share the class now, so check placement rather than count
+    {
+      const i = src.indexOf('cats.forEach');
+      const loop = src.slice(i, src.indexOf('\n      });', i));
+      ok('the disclaimers sit outside the category loop', !loop.includes("'unofficial'"));
+    }
   }
 
   // what the site keeps, and the one thing you can refuse
@@ -1507,6 +1527,53 @@ head('Knob detents');
     const menu = rf(new URL('../src/core/menu.js', import.meta.url), 'utf8');
     ok('there is a page explaining all of it', /renderPrivacy/.test(menu));
     ok('reachable from the aircraft screen', /privlink/.test(menu));
+  }
+
+  /* Two start-ups now: the same jet, but the deck changes what you set before
+     you move. The pair must stay in step, and the carrier one must actually
+     differ where it should. */
+  {
+    const shoreP = AC.procedures.find(p => p.meta.id === 'pilot-start');
+    const boatP  = AC.procedures.find(p => p.meta.id === 'pilot-start-carrier');
+    ok('there is a carrier start-up', !!boatP);
+    ok('and the shore one says so in its name', /shore/i.test(shoreP.meta.name));
+    ok('both share the engine start', 
+       shoreP.steps.filter(s => /Engine Start/.test(s.g)).length ===
+       boatP.steps.filter(s => /Engine Start/.test(s.g)).length);
+    ok('the carrier one adds a before-taxi group',
+       boatP.steps.some(s => /Before Taxi/.test(s.g)) &&
+       !shoreP.steps.some(s => /Before Taxi/.test(s.g)));
+
+    const boatWants = (re, val) => {
+      const s = boatP.steps.find(x => re.test(x.t));
+      return s && s.done.toString().includes(val);
+    };
+    ok('the boat wants anti-skid off', boatWants(/ANTI-SKID.*centre/, "antiSkid==='off'"));
+    ok('the boat wants hook bypass to carrier', boatWants(/HOOK BYPASS/, "hookBypass==='carrier'"));
+    ok('the boat checks the nose strut is extended', boatWants(/Nose strut/, "noseStrut==='off'"));
+    ok('the boat wants the takeoff HUD mode', boatWants(/HUD master mode/, "masterMode==='to'"));
+    ok('the boat wants lights off on deck',
+       boatP.steps.some(s => /Exterior lights/.test(s.t) && s.done.toString().includes("extLights==='off'")));
+    /* The deck is cramped: a boat start taxis in oversweep and the whole sweep
+       sequence happens at the catapult. The DCS checklist puts EMER WING SWEEP
+       COVER, MASTER RESET and WING SWEEP AUTO under CATAPULT HOOK-UP. */
+    ok('the boat taxis in oversweep',
+       boatWants(/leave them in OVERSWEEP/, "wingSweep==='oversweep'"));
+    ok('and does not exit oversweep before taxi',
+       !boatP.steps.some(s => /Out of Oversweep/.test(s.g)));
+    ok('while ashore it does, before moving',
+       shoreP.steps.some(s => /Out of Oversweep/.test(s.g)));
+
+    const strut = AC.controls.find(c => c.id === 'noseStrut');
+    ok('the nose strut switch has all three positions',
+       strut.states.length === 3 && strut.states.includes('extd'), strut.states.join('/'));
+
+    ok('ashore the lights are left to the pilot',
+       shoreP.steps.some(s => /lights as required/.test(s.t)));
+    ok('and ashore it taxis on the spoiler brakes',
+       shoreP.steps.some(s => /ANTI-SKID/.test(s.t) && s.done.toString().includes("antiSkid==='spoiler'")));
+    ok('the two endings differ',
+       shoreP.meta.ending.sub !== boatP.meta.ending.sub);
   }
 
   // era classifications the reviewers corrected

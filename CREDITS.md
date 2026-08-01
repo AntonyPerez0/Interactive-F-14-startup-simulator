@@ -25,6 +25,10 @@ former aircrew who reviewed the trainer directly.
 Corrections and flight-test feedback from members of the **Virtual Weapons
 Academy**, whose insignia appears on the aircraft screen.
 
+The author flies with the squadron but is not affiliated with it, and this site
+is not theirs. They reviewed the procedures; they did not build this and are not
+answerable for it. Their Discord is a good place to learn DCS World.
+
 Where the guide and the reviewers disagreed, the reviewers won, and the reason is
 written into the step. Where neither covered something — the shutdown procedure,
 for instance — the file says so at the top.

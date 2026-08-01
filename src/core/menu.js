@@ -65,7 +65,7 @@ export function createMenu(catalogue, onPick, stats, presence) {
         // the squadron the procedures were reviewed by
         '<a class="marklink" href="https://www.virtualweaponsacademy.org/" ' +
           'target="_blank" rel="noopener noreferrer">' +
-          '<img class="mark" alt="Virtual Weapons Academy" title="Virtual Weapons Academy" src=' +
+          '<img class="mark" alt="Virtual Weapons Academy" title="Virtual Weapons Academy — a good squadron to learn DCS with" src=' +
           JSON.stringify('assets/brand/vwa-144.png') + '></a>';
       this.inner.appendChild(head);
 
@@ -133,6 +133,17 @@ export function createMenu(catalogue, onPick, stats, presence) {
         'other developer. Cockpit imagery belongs to them and is used here to ' +
         'teach switch positions.';
       foot.appendChild(note);
+
+      /* Where the squadron actually stands: they reviewed it, they did not
+         build it, and none of this is theirs to answer for. */
+      const vwa = el('p', 'unofficial');
+      vwa.innerHTML =
+        'The insignia above belongs to the <a href="https://www.virtualweaponsacademy.org/" ' +
+        'target="_blank" rel="noopener noreferrer">Virtual Weapons Academy</a>. ' +
+        'I fly with them and their aircrew corrected a great deal of what is here, ' +
+        'but I am not affiliated with the squadron and this site is not theirs. ' +
+        'If you want to learn DCS World properly, their Discord is well worth joining.';
+      foot.appendChild(vwa);
       const links = el('div', 'footlinks');
       const pl = el('button', 'privlink');
       pl.textContent = 'What this site keeps';
@@ -196,8 +207,9 @@ export function createMenu(catalogue, onPick, stats, presence) {
         '<h4>Credit where it is due</h4>' +
         '<p>The cockpit photographs are Eagle Dynamics and Heatblur artwork, used ' +
         'to teach switch positions. The procedures follow Chuck\'s guide, corrected ' +
-        'by aircrew from the Virtual Weapons Academy. This is an unofficial, ' +
-        'non-commercial community tool with no affiliation to any of them.</p>' +
+        'by aircrew from the Virtual Weapons Academy, who I fly with but do not ' +
+        'speak for. This is an unofficial, non-commercial community tool with no ' +
+        'affiliation to any of them.</p>' +
         '<p class="fine">The site is served by Cloudflare, which may set its own ' +
         'security cookie on requests as part of blocking bots. That is theirs, ' +
         'not something this site asks for or reads.</p>';
