@@ -1218,7 +1218,6 @@ head('Knob detents');
     ok('it is generated, not hand-edited', /Do not edit/.test(build));
     ok('and shown where a reporter can find it', /buildstamp/.test(menu));
 
-
     /* Boot code once ended up inside the frame loop, so the service worker was
        re-registered sixty times a second. Check what the loop contains. */
     {
@@ -1574,6 +1573,45 @@ head('Knob detents');
        shoreP.steps.some(s => /ANTI-SKID/.test(s.t) && s.done.toString().includes("antiSkid==='spoiler'")));
     ok('the two endings differ',
        shoreP.meta.ending.sub !== boatP.meta.ending.sub);
+  }
+
+  /* The interactive trainer link. It is a different kind of thing from the
+     checklists it sits among, and it has its own scoring, so the columns that
+     normally carry a step count and a best time must stay honest. */
+  {
+    const { readFileSync: rf } = await import('node:fs');
+    const menu = rf(new URL('../src/core/menu.js', import.meta.url), 'utf8');
+    const cfg  = rf(new URL('../src/core/config.js', import.meta.url), 'utf8');
+    const css  = rf(new URL('../src/core/style.css', import.meta.url), 'utf8');
+    const { SIM_LINK } = await import('../src/core/config.js');
+
+    ok('the trainer link is configured', !!SIM_LINK && /^https:\/\//.test(SIM_LINK.href),
+       SIM_LINK.href);
+    ok('it sits under the carrier landing', SIM_LINK.after === 'landing-carrier');
+    ok('and that procedure exists to sit under',
+       AC.procedures.some(p => p.meta.id === SIM_LINK.after));
+    ok('removing it is one edit', /Set to null to remove the row/.test(cfg) &&
+       /if \(SIM_LINK &&/.test(menu));
+
+    ok('it opens in a new tab', /link\.target = '_blank'/.test(menu));
+    ok('safely', /rel = 'noopener noreferrer'/.test(menu));
+    ok('it is a real link, so it is keyboard focusable',
+       /el\('a', 'proc proclink'\)/.test(menu));
+    ok('and announces where it goes', /opens in a new tab'\)/.test(menu));
+
+    /* No invented numbers: it has no steps here and no runs here. */
+    ok('it claims no step count', !/SIM_LINK[\s\S]{0,400}steps</.test(menu));
+    ok('and no best time', !/SIM_LINK[\s\S]{0,400}best /.test(menu));
+    ok('the right-hand column just says what it is',
+       /<span class="stat">opens in a new tab<\/span>/.test(menu));
+
+    ok('the badge is a third colour, not a crew badge',
+       /\.proc \.crew\.trainer\{color:#3fc2d6/.test(css));
+    ok('and it is not green or amber',
+       !/\.crew\.trainer\{[^}]*var\(--phos\)/.test(css) &&
+       !/\.crew\.trainer\{[^}]*var\(--amber\)/.test(css));
+    ok('the row matches the checklist rows', /a\.proclink\{text-decoration:none/.test(css));
+    ok('it is not embedded in a frame', !/iframe/i.test(menu));
   }
 
   // era classifications the reviewers corrected

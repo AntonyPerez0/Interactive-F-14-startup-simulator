@@ -262,7 +262,6 @@ body.edit #editbar{display:flex}
 #doneStats dd.warn{color:var(--amber)}
 #doneStats dd small{display:block;color:var(--amber);font-size:11px;line-height:1.6}
 
-
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---------- INS alignment page on the TID ---------- */
@@ -333,15 +332,24 @@ body.edit #editbar{display:flex}
 .proc{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:15px 16px;
   border-bottom:1px solid #141c1e;background:none}
 .proc:hover{background:#0e1a14}
+/* An anchor styled as a row: same height, type and spacing as the buttons it
+   sits among, so the section still reads as one list. */
+a.proclink{text-decoration:none;box-sizing:border-box}
+a.proclink:hover{background:#0b1a1f}
+a.proclink:hover .crew.trainer{color:#63d8e8;border-color:#2a7c88}
+a.proclink .n{color:#3f4f53}
 .proc b{flex:1;font-size:15px;letter-spacing:.04em;color:#dbe6e4;font-weight:600}
 .proc .crew{font-size:9px;letter-spacing:.18em;text-transform:uppercase;padding:4px 8px;
   border-radius:2px;border:1px solid var(--seam-hi);color:var(--txt-dim);min-width:52px;text-align:center}
 .proc .crew.rio{color:var(--amber);border-color:#5a4415}
 .proc .crew.pilot{color:var(--phos);border-color:var(--phos-dim)}
+/* A third accent for the thing that is not a checklist. Cyan reads as
+   instrument lighting next to the green and amber crew badges without
+   competing with either. */
+.proc .crew.trainer{color:#3fc2d6;border-color:#1d5a63;background:#0a1b1f}
 .proc .n{font-family:var(--data);font-size:11px;color:var(--txt-dim)}
 .soon{padding:15px 16px;font-size:12px;color:var(--txt-dim);font-style:italic}
 @media (max-width:700px){.menuhead h1{font-size:26px}.menuinner{padding:28px 16px 48px}}
-
 
 /* ============================================================
    MOBILE: the checklist becomes a bottom sheet
@@ -372,7 +380,6 @@ body.edit #editbar{display:flex}
   body.rail-open #stepbar{display:none}
 
   /* tap it or swipe it down */
-
 
   #railfoot{padding:8px}
   #railfoot .btn{flex:1 1 auto;padding:11px 10px;font-size:11px}
@@ -609,3 +616,4 @@ button.srow:disabled:hover{background:none;color:var(--txt-dim)}
   #soundpanel{right:6px;width:196px}
   .sfine{display:none}   /* no keyboard to press M with */
 }
+

@@ -10,6 +10,7 @@
 import { setAirborne, nextOf } from '../systems.js';
 
 /* This one starts in the air, not cold and dark. */
+/* This one starts in the air, not cold and dark. */
 export const setup = sim => setAirborne(sim);
 
 export const meta = { id:'landing-carrier', crew:'pilot', phase:'landing',

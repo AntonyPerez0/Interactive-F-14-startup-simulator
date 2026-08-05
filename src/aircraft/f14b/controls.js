@@ -182,7 +182,7 @@ export const controls = [
        OFF   — no strut movement
        EXTD  — extends the strut, raises and locks the launch bar
      In the tray because I have no measured position for it on the photos. */
-  { id:'noseStrut', tray:true, kind:'sw', name:'NOSE STRUT',
+      { id:'noseStrut', tray:true, kind:'sw', name:'NOSE STRUT',
     states:['kneel','off','extd'],
     lab:{ kneel:'KNEEL \u00b7 launch bar unlocked', off:'OFF', extd:'EXTD \u00b7 bar up and locked' },
     init:'off' },

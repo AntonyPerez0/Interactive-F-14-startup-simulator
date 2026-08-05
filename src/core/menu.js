@@ -10,7 +10,7 @@
 import { $, el } from './dom.js';
 import { mmss } from './stats.js';
 import { countingOff, setCounting } from './presence.js';
-import { FEEDBACK_URL } from './config.js';
+import { FEEDBACK_URL, SIM_LINK } from './config.js';
 import { BUILD, BUILT } from './build.js';
 
 const PHASES = [
@@ -277,10 +277,31 @@ export function createMenu(catalogue, onPick, stats, presence) {
             card.appendChild(note);
             card.onclick = () => { this.close(); onPick(ac, p); };
             sec.appendChild(card);
+
+            /* The interactive trainer sits directly under the checklist it
+               partners: that one tells you the steps, this one makes you fly
+               them. Same row, different kind of thing — so a third badge
+               colour, and nothing in the columns that would look like a step
+               count or a best time it does not have. */
+            if (SIM_LINK && SIM_LINK.after === p.meta.id) {
+              const link = el('a', 'proc proclink');
+              link.href = SIM_LINK.href;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
+              link.setAttribute('aria-label',
+                SIM_LINK.title.replace(/\s*\u00b7\s*/g, ' ') + ', opens in a new tab');
+              link.innerHTML =
+                `<span class="crew trainer">${SIM_LINK.badge}</span>` +
+                `<b>${SIM_LINK.title}</b>` +
+                `<span class="n" aria-hidden="true">\u2197</span>` +
+                `<span class="stat">opens in a new tab</span>`;
+              sec.appendChild(link);
+            }
           });
         }
         this.inner.appendChild(sec);
       });
+
     },
   };
   return M;
