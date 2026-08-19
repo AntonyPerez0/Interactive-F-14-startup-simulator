@@ -156,7 +156,28 @@ sim.on((msg, kind) => {
 });
 
 const P = createPresence(PRESENCE_URL);
-const menu = createMenu(catalogue, (_ac, procedure) => startProcedure(procedure), ST, P);
+/* Picking an aircraft in the hangar.
+
+   Everything above — the sim, the views, the checklist, the kneeboard, the tab
+   strip, the status cells and the caution lamps — is built ONCE at module load
+   from `ac`, and `ac` comes from the query string. That was invisible while
+   there was one aircraft: whatever you picked, it was the Tomcat anyway. With
+   two, picking the Hornet started the Hornet's CHECKLIST against the Tomcat's
+   cockpit, which is a convincing and completely wrong screen.
+
+   Switching in place would mean rebuilding all of the above and re-binding
+   every handler that closed over the old objects. A reload does the same job
+   correctly, cannot half-succeed, and is nearly free because the service worker
+   has already cached everything. The procedure travels in the URL so the
+   reload lands where the pilot was going. */
+const menu = createMenu(catalogue, (picked, procedure) => {
+  if (picked && picked.id !== ac.id) {
+    const q = new URLSearchParams({ aircraft: picked.id, proc: procedure.meta.id });
+    location.search = '?' + q.toString();
+    return;
+  }
+  startProcedure(procedure);
+}, ST, P);
 
 let current = null;
 
@@ -455,7 +476,13 @@ window.addEventListener('keydown', e => {
 K.build();
 V.reset();
 menu.mount();
-menu.open();
+/* Arriving with ?proc= means we have just reloaded to change aircraft: go
+   straight to the procedure the pilot picked, rather than making them find it
+   again in a hangar they have already been through. */
+const deepLink = new URLSearchParams(location.search).get('proc');
+const wanted = deepLink && ac.procedures.find(p => p.meta.id === deepLink);
+if (wanted) startProcedure(wanted);
+else menu.open();
 let last = performance.now();
 function frame(now) {
   const dt = (now - last) / 1000;
