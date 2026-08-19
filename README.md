@@ -5,7 +5,9 @@ cockpit screenshots; the aircraft is simulated underneath, so each checklist ste
 ticks itself off when the jet actually reaches that state rather than when you
 say it has.
 
-Currently ships the **F-14B Tomcat** — twelve procedures across four phases:
+Ships two aircraft: the **F-14B Tomcat** and the **F/A-18C Hornet**.
+
+## F-14B Tomcat — twelve procedures across four phases
 
 | phase | crew | procedure | steps |
 |---|---|---|---|
@@ -21,6 +23,29 @@ Currently ships the **F-14B Tomcat** — twelve procedures across four phases:
 | landing | pilot | Landing · carrier Case I | 40 |
 | shutdown | pilot | Shutdown · pilot | 21 |
 | shutdown | RIO | Shutdown · RIO | 14 |
+
+## F/A-18C Hornet — five procedures, single seat
+
+| phase | procedure | steps |
+|---|---|---|
+| start-up | Cold start | 57 |
+| takeoff | Carrier launch | 21 |
+| landing | CASE I recovery | 18 |
+| combat | Combat systems | 14 |
+| shutdown | Shutdown | 25 |
+
+179 controls across four views, with the APU, both F404s, the generators,
+hydraulics, the bleed air the fire test steals and the INS alignment all
+simulated — so 109 of the 135 steps confirm themselves off aircraft state rather
+than off a tap. `node tests/fa18c.mjs` drives every step of every checklist
+through that model and fails if any of them cannot be reached.
+
+The Hornet's views are composed rather than screenshotted: `tools/compose-fa18c.py`
+cuts a full cockpit layout drawing into four 1920x1080 images and emits the
+hotspot coordinates from the same transform, so the picture and the hitboxes
+cannot drift apart. Read CREDITS.md before publishing that drawing.
+
+## Sources
 
 Procedures follow Chuck's DCS F-14B guide, corrected throughout by aircrew who
 reviewed the trainer directly. Where the guide and the reviewers disagreed, the

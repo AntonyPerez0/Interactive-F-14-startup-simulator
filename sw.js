@@ -6,7 +6,7 @@
 
    Version is a hash of file contents, so any edit invalidates the old cache.
    Regenerate with: python3 tools/build-sw.py */
-const CACHE = 'dcs-trainer-13d4273e';
+const CACHE = 'dcs-trainer-62fd64e2';
 const SHELL = [
   "./assets/brand/og-card.png",
   "./assets/brand/vwa-144.png",
@@ -15,6 +15,10 @@ const SHELL = [
   "./assets/f14b/rio-centre.jpg",
   "./assets/f14b/rio-left.jpg",
   "./assets/f14b/rio-right.jpg",
+  "./assets/fa18c/front.jpg",
+  "./assets/fa18c/lcon.jpg",
+  "./assets/fa18c/lower.jpg",
+  "./assets/fa18c/rcon.jpg",
   "./assets/icons/apple-touch-icon.png",
   "./assets/icons/favicon-16.png",
   "./assets/icons/favicon-32.png",
@@ -45,6 +49,16 @@ const SHELL = [
   "./src/aircraft/f14b/procedures/shutdown-pilot.js",
   "./src/aircraft/f14b/procedures/shutdown-rio.js",
   "./src/aircraft/f14b/systems.js",
+  "./src/aircraft/fa18c/controls.js",
+  "./src/aircraft/fa18c/gauges.js",
+  "./src/aircraft/fa18c/index.js",
+  "./src/aircraft/fa18c/procedures/_common.js",
+  "./src/aircraft/fa18c/procedures/carrier-launch.js",
+  "./src/aircraft/fa18c/procedures/case1-landing.js",
+  "./src/aircraft/fa18c/procedures/cold-start.js",
+  "./src/aircraft/fa18c/procedures/combat.js",
+  "./src/aircraft/fa18c/procedures/shutdown.js",
+  "./src/aircraft/fa18c/systems.js",
   "./src/aircraft/registry.js",
   "./src/core/app.js",
   "./src/core/audio.js",
