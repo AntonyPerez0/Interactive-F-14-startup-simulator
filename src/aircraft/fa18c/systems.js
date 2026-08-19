@@ -54,7 +54,13 @@ export function initState(S, sw) {
     ecs: false,
     hyd: { a: 0, b: 0 }, brakePsi: 3100,
     fuel: 10400,
+    /* Read by the instrument layer. On the ground they are static, which is
+       the honest answer for a trainer that does not fly — but they are here
+       rather than printed on the drawing, so a cold jet reads like a cold jet
+       and they move the moment anything makes them move. */
+    alt: 0, ias: 0, radalt: 0, cabinAlt: 0,
     ins: { mode: null, t: 0, complete: false, aligned: false },
+    insLeft,
     fcsBit: { run: false, t: 0, done: false },
     fireTest: { held: 0, doneA: false, doneB: false },
     ltTestT: 0,
@@ -63,6 +69,12 @@ export function initState(S, sw) {
       apuAcc: false, ckSeat: false, battSw: false, fcsHot: false,
       genTie: false, fuelLo: false, fces: false, lGen: false, rGen: false,
       masterCaution: false, hook: false,
+      /* Lamps rather than cautions: the renderer lights any control of kind
+         `lamp` from this map, so anything on the panel that glows lives here
+         too — the green APU READY, the HOOK light, READY/DISCH, the FLAPS
+         advisory and the standby caution panel as a whole. */
+      apuReady: false, hookDown: false, ready: false, flapsOut: false,
+      stbyPanel: false, fireL: false, fireR: false,
     },
   });
 }
@@ -242,6 +254,14 @@ export function tick(sim, dt, real) {
     }
   }
 
+  /* Fuel burns while the engines run, so the IFEI quantity is not a printed
+     number that never changes. About 60 lb a minute at idle, per engine. */
+  const burning = (S.eng.L.lit ? 1 : 0) + (S.eng.R.lit ? 1 : 0);
+  if (burning) S.fuel = Math.max(0, S.fuel - burning * dt * (60 / 60));
+
+  /* Cabin altitude follows the ECS once there is air to move. */
+  S.cabinAlt = approach(S.cabinAlt, S.ecs ? 8000 : 0, 0.15, dt);
+
   /* Cautions. On battery alone the standby panel is all you have, which is
      exactly why the checklist reads it before the APU goes on. */
   const C = S.caution;
@@ -255,6 +275,16 @@ export function tick(sim, dt, real) {
   C.fces = S.power && !S.fcsBit.done && (S.eng.L.lit || S.eng.R.lit);
   C.fcsHot = false;
   C.masterCaution = C.lGen || C.rGen || C.fces || C.ckSeat || C.fuelLo;
+
+  /* Lamps. */
+  C.apuReady = S.apu.ready;
+  C.hookDown = sw.hookLever === 'down';
+  C.ready = S.power && S.eng.R.lit && S.eng.L.lit;
+  C.flapsOut = sw.flapSw !== 'auto';
+  C.stbyPanel = C.ckSeat || C.apuAcc || C.battSw || C.genTie || C.fuelLo
+             || C.fces || C.lGen || C.rGen;
+  C.fireL = false;
+  C.fireR = false;
 
 }
 
@@ -283,6 +313,12 @@ export function radio(sim, act) {
 }
 
 /* ---------------- helpers the procedures and the UI use ---------------- */
+
+/** Seconds left on the alignment, for the chip over the AMPCD. */
+export function insLeft(S) {
+  if (!S.ins.mode || S.ins.complete) return 0;
+  return Math.max(0, INS_TIME[S.ins.mode] - S.ins.t);
+}
 
 /** Alignment progress, 0..1. */
 export function insPct(S) {

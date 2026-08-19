@@ -11,7 +11,7 @@
 import { stamp } from './_common.js';
 
 export const meta = { id:'shutdown', crew:'pilot', phase:'shutdown', variant:'carrier',
-                      name:'Shutdown', view:'knees',
+                      name:'Shutdown', view:'panels',
                       ending:{ title:'Cold and Dark', sub:'Chocked, chained, battery off.' } };
 
 export const steps = stamp([

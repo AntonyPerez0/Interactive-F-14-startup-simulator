@@ -25,20 +25,21 @@ export default {
   name: 'F/A-18C Hornet',
   source: "Chuck's DCS F/A-18C guide, Parts 4-6 and 9-11",
 
-  /* Every view is a single straight crop of the cockpit drawing — nothing is
-     moved, rotated or rearranged to fill the frame. Relative positions inside
-     a view are the aeroplane's. The left console runs fore-and-aft and is too
-     long to read in one frame, so it is split into three views ALONG ITS OWN
-     LENGTH and named for where each sits. A switch on the left console, aft, is
-     on the aft tab, on the left of it — the same place you will reach for it in
-     the jet. */
+  /* TWO VIEWS, each a single straight crop of the cockpit drawing. Nothing is
+     moved, rotated or rearranged to fill a frame — relative positions inside a
+     view are the aeroplane's, because they are literally the same pixels in the
+     same places.
+
+     `panels` deliberately holds the whole lower cockpit in ONE frame rather
+     than splitting it into tabs. It is dense at fit-to-screen; that is the
+     trade, and it is the right one. A switch you only ever see on a tab called
+     "left console, middle" is a switch you cannot place in a real cockpit,
+     which defeats the point of the trainer. One map you can orient yourself on,
+     plus zoom and a SHOW ME that flies to the control, beats six crops you have
+     to assemble in your head. */
   views: [
-    { id:'front', crew:'pilot', label:'Front Panel',        src:'assets/fa18c/front.jpg' },
-    { id:'knees', crew:'pilot', label:'Knee Panels',        src:'assets/fa18c/knees.jpg' },
-    { id:'lconF', crew:'pilot', label:'L Console · Fwd',    src:'assets/fa18c/lconF.jpg' },
-    { id:'lconM', crew:'pilot', label:'L Console · Mid',    src:'assets/fa18c/lconM.jpg' },
-    { id:'lconA', crew:'pilot', label:'L Console · Aft',    src:'assets/fa18c/lconA.jpg' },
-    { id:'rcon',  crew:'pilot', label:'Right Console',      src:'assets/fa18c/rcon.jpg' },
+    { id:'front',  crew:'pilot', label:'Front Panel',       src:'assets/fa18c/front.jpg' },
+    { id:'panels', crew:'pilot', label:'Panels & Consoles', src:'assets/fa18c/panels.jpg' },
   ],
   /* Nothing appears on more than one view: every panel is drawn once on the
      layout, so every hotspot belongs to exactly one crop. */
