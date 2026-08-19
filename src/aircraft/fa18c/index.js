@@ -38,8 +38,8 @@ export default {
      plus zoom and a SHOW ME that flies to the control, beats six crops you have
      to assemble in your head. */
   views: [
-    { id:'front',  crew:'pilot', label:'Front Panel',       src:'assets/fa18c/front.jpg' },
-    { id:'panels', crew:'pilot', label:'Panels & Consoles', src:'assets/fa18c/panels.jpg' },
+    { id:'front',  crew:'pilot', label:'Front Panel',       src:'assets/fa18c/front.webp' },
+    { id:'panels', crew:'pilot', label:'Panels & Consoles', src:'assets/fa18c/panels.webp' },
   ],
   /* Nothing appears on more than one view: every panel is drawn once on the
      layout, so every hotspot belongs to exactly one crop. */

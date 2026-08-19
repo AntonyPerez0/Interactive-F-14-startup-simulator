@@ -66,23 +66,19 @@ export const gauges = [
   { id:'dgStbyAsi', view:'front', kind:'chip', x:1145, y:872, w:106, h:20, name:'STANDBY AIRSPEED',
     read: s => `${n0(s.ias)} KT` },
 
-  /* ---------------- pressures, on their own dials ----------------------- */
-  { id:'dgBrake', view:'panels', kind:'chip', x:498, y:250, w:58, h:14, name:'BRAKE PRESSURE',
-    read: s => `${n0(s.brakePsi / 100) / 10}k` },
+  /* ---------------- pressures, on their own dials -----------------------
+     Needles only. There were digital repeaters beside these three dials and
+     they were a mistake: at this scale a chip big enough to read is bigger
+     than the gap between the dial and the next placard, so BATTERY VOLTS sat
+     across the L GEN switch label. The pointer on the drawn dial is the honest
+     readout — it is where you would look in the jet — and the strip along the
+     bottom of the screen already carries brake and hydraulic pressure as text.
+     ---------------------------------------------------------------------- */
   { id:'ndBrake', view:'panels', kind:'needle', x:506, y:209, w:41, h:38,
     name:'BRAKE PRESSURE NEEDLE',
     read: s => s.brakePsi, min: 0, max: 4000, a0: -140, a1: 140 },
 
-  { id:'dgHyd', view:'panels', kind:'chip', x:1336, y:234, w:62, h:14, name:'HYD PRESSURE',
-    read: s => `${n0(s.hyd.a / 100) / 10}/${n0(s.hyd.b / 100) / 10}k` },
   { id:'ndHyd', view:'panels', kind:'needle', x:1344, y:191, w:46, h:42,
     name:'HYDRAULIC PRESSURE NEEDLE',
     read: s => (s.hyd.a + s.hyd.b) / 2, min: 0, max: 4000, a0: -140, a1: 140 },
-
-  { id:'dgCabin', view:'panels', kind:'chip', x:998, y:228, w:70, h:14, name:'CABIN ALTITUDE',
-    read: s => `${n0(s.cabinAlt / 1000)}k FT` },
-  { id:'dgBatt', view:'panels', kind:'chip', x:1356, y:316, w:60, h:14, name:'BATTERY VOLTS',
-    read: s => `${(s.power ? 24.5 : 0).toFixed(1)}V` },
-  { id:'dgRadalt', view:'panels', kind:'chip', x:1340, y:172, w:76, h:14, name:'RADAR ALTIMETER',
-    read: s => s.power ? `${n0(s.radalt)} FT` : 'OFF' },
 ];

@@ -18,7 +18,8 @@ STAMP = ROOT / 'src' / 'core' / 'build.js'
 # offline, but excluded from the hash below -- it contains the hash, so counting
 # it would never settle.
 files = ['./index.html', './manifest.webmanifest', './favicon.ico', './favicon.svg']
-for pat in ('src/**/*.js', 'src/**/*.css', 'assets/**/*.jpg', 'assets/**/*.png'):
+for pat in ('src/**/*.js', 'src/**/*.css', 'assets/**/*.jpg', 'assets/**/*.png',
+            'assets/**/*.webp'):
     files += ['./' + str(p.relative_to(ROOT)) for p in sorted(ROOT.glob(pat))]
 
 stamp_rel = './' + str(STAMP.relative_to(ROOT))
