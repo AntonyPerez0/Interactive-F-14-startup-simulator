@@ -9,13 +9,14 @@
    Nothing else needs to change.
    ============================================================ */
 import f14b from './f14b/index.js';
+import fa18c from './fa18c/index.js';
 
-export const aircraft = [f14b];
+export const aircraft = [f14b, fa18c];
 
 export const catalogue = [
   /* ---------------- modern jets ---------------- */
   { id:'f14b',  cat:'Modern jets', name:'F-14A/B Tomcat',       maker:'Heatblur', module:f14b },
-  { id:'fa18c', cat:'Modern jets', name:'F/A-18C Hornet',       maker:'Eagle Dynamics' },
+  { id:'fa18c', cat:'Modern jets', name:'F/A-18C Hornet',       maker:'Eagle Dynamics', module:fa18c },
   { id:'f16c',  cat:'Modern jets', name:'F-16C Viper',          maker:'Eagle Dynamics' },
   { id:'a10c2', cat:'Modern jets', name:'A-10C II Warthog',     maker:'Eagle Dynamics' },
   { id:'f15e',  cat:'Modern jets', name:'F-15E Strike Eagle',   maker:'RAZBAM' },
