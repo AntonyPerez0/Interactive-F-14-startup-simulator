@@ -171,13 +171,47 @@ const P = createPresence(PRESENCE_URL);
    has already cached everything. The procedure travels in the URL so the
    reload lands where the pilot was going. */
 const menu = createMenu(catalogue, (picked, procedure) => {
-  if (picked && picked.id !== ac.id) {
-    const q = new URLSearchParams({ aircraft: picked.id, proc: procedure.meta.id });
-    location.search = '?' + q.toString();
-    return;
-  }
+  if (picked && picked.id !== ac.id) { swapAircraft(picked, procedure); return; }
   startProcedure(procedure);
 }, ST, P);
+
+/**
+ * Change aircraft, without showing the old one on the way out.
+ *
+ * The hangar closes itself before it calls back — `this.close(); onPick(...)` —
+ * which uncovers the cockpit that was built at boot. Then the reload takes
+ * anywhere from fifty milliseconds on a warm cache to a couple of seconds on a
+ * phone. In that gap you get a clear look at the WRONG AEROPLANE, which is
+ * alarming in a trainer whose whole promise is showing you the right one.
+ *
+ * So a curtain goes up first, and the navigation waits two frames for it to be
+ * painted. One frame is not reliably enough: the browser can begin tearing the
+ * document down before it has composited, and then the curtain never appears.
+ */
+function swapAircraft(picked, procedure) {
+  const q = new URLSearchParams({ aircraft: picked.id, proc: procedure.meta.id });
+  const curtain = document.createElement('div');
+  curtain.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:9999',
+    'display:flex', 'flex-direction:column', 'gap:10px',
+    'align-items:center', 'justify-content:center',
+    'background:#0b0f12', 'color:#dfe8ee',
+    'font:600 15px/1.4 ui-monospace,Menlo,Consolas,monospace',
+    'letter-spacing:.08em', 'text-align:center', 'padding:24px',
+  ].join(';');
+  const name = document.createElement('div');
+  name.textContent = picked.name.toUpperCase();
+  name.style.cssText = 'font-size:22px;letter-spacing:.14em';
+  const sub = document.createElement('div');
+  sub.textContent = procedure.meta.name;
+  sub.style.cssText = 'color:#7b8a95;font-size:12px;letter-spacing:.1em';
+  curtain.append(name, sub);
+  document.body.appendChild(curtain);
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    location.search = '?' + q.toString();
+  }));
+}
 
 let current = null;
 

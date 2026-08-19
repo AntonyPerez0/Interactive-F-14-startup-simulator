@@ -77,6 +77,46 @@ for (const proc of fa18c.procedures) {
 }
 
 /* ---------------- the start-up actually starts the aeroplane ---------------- */
+/* ---------------- the panel geometry ---------------- */
+console.log('\nF/A-18C panel');
+console.log('-------------');
+{
+  const C = fa18c.controls;
+  const bad = [];
+  for (const c of C) {
+    if (c.kind === 'lamp') continue;
+    if (!c.states) { bad.push(`${c.id} has no positions but is a ${c.kind}`); continue; }
+    if (!c.states.includes(c.init)) bad.push(`${c.id} starts in "${c.init}", which is not one of its positions`);
+    if (c.lab) for (const st of c.states) if (!(st in c.lab)) bad.push(`${c.id} has no label for "${st}"`);
+    if (c.axis && c.axis !== 'x') bad.push(`${c.id} has axis "${c.axis}"`);
+  }
+  ok('every control has positions, a valid start and a label for each', bad.length === 0, bad.slice(0, 3).join(' | '));
+
+  /* A knob with no angles sweeps a generic -70..+70 whatever is printed on the
+     panel, so a seven-position selector puts its pointer nowhere near the
+     detents. This is the check that would have caught that. */
+  const knobs = C.filter(c => c.kind === 'knob' && c.states);
+  const noAngles = knobs.filter(c => !c.angles);
+  ok('every knob names the angle of each printed detent', noAngles.length === 0,
+     noAngles.length ? noAngles.slice(0, 4).map(c => c.id).join(', ') : `${knobs.length} knobs`);
+  const wrongLen = knobs.filter(c => c.angles && c.angles.length !== c.states.length);
+  ok('and has exactly one angle per position', wrongLen.length === 0,
+     wrongLen.map(c => c.id).join(', '));
+
+  /* Panels drawn rotated on this layout move their switches left and right.
+     Nothing in the data can prove which those are — but a count that drops to
+     zero means someone regenerated controls.js and lost them all, which is
+     exactly what happened once. */
+  const sideways = C.filter(c => c.axis === 'x');
+  ok('the rotated panels still travel sideways', sideways.length >= 12,
+     `${sideways.length} controls on the horizontal axis`);
+
+  const views = new Set(fa18c.views.map(v => v.id));
+  const stray = C.filter(c => !c.tray && !views.has(c.view));
+  ok('every control is on a real view or in the tray', stray.length === 0,
+     stray.map(c => c.id).join(', '));
+}
+
 console.log('\nF/A-18C systems');
 console.log('---------------');
 {
@@ -122,6 +162,48 @@ console.log('---------------');
   s3.click('bleedAir', 1);
   ok('and rotating BLEED AIR re-opens them, even though it ends where it started',
      !s3.S.bleedClosed);
+
+  /* The APU has to be DERIVED from both the battery and its own switch.
+     Latching it in onChange produced a state the cockpit could not explain:
+     battery ON, APU switch ON, APU dead, no caution, no way back — and the
+     checklist asks you to cycle the battery two steps earlier, so it was easy
+     to hit and impossible to diagnose. */
+  const s5 = createSim(fa18c);
+  s5.set('battSw', 'on');
+  s5.click('battSw', -1);                       // battery OFF, as the tape-rewind step says
+  s5.click('apuSw', 1);                         // APU switch up while dark
+  s5.click('battSw', 1);                        // battery back ON, APU switch already up
+  for (let i = 0; i < 40 * 4; i++) s5.tick(0.25);
+  ok('the APU spools when the battery comes back, switch already up', s5.S.apu.ready);
+
+  const s6 = createSim(fa18c);
+  s6.set('battSw', 'on'); s6.set('apuSw', 'on');
+  for (let i = 0; i < 40 * 4; i++) s6.tick(0.25);
+  ok('and stops again the moment the bus goes', (() => {
+    s6.set('battSw', 'off');
+    for (let i = 0; i < 8; i++) s6.tick(0.25);
+    return !s6.S.apu.ready && !s6.S.apu.on;
+  })());
+
+  const s7 = createSim(fa18c);
+  const heard = [];
+  s7.on(m => heard.push(m));
+  s7.set('apuSw', 'on');
+  for (let i = 0; i < 20; i++) s7.tick(0.25);
+  ok('and says so rather than leaving you watching a dead light',
+     heard.some(m => /battery is OFF/i.test(m)));
+
+  /* The step that caused it must now refuse to tick with the battery off. */
+  const cold = fa18c.procedures.find(p => p.meta.id === 'cold-start');
+  const cycle = cold.steps.find(x => /cycle OFF and back ON/i.test(String(x.t)));
+  ok('the battery-cycle step exists and checks the END state', !!cycle && !!cycle.done);
+  if (cycle) {
+    const s8 = createSim(fa18c);
+    s8.set('battSw', 'off');
+    ok('  it does not tick with the battery off', !cycle.done(s8.S));
+    s8.set('battSw', 'on');
+    ok('  and does once it is back on', cycle.done(s8.S));
+  }
 
   // Alignment.
   const s4 = createSim(fa18c);

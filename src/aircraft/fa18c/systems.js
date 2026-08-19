@@ -95,18 +95,13 @@ export function beforeChange(sim, c, dir) {
 export function onChange(sim, id, to) {
   const S = sim.S;
 
-  if (id === 'battSw') {
-    S.power = to === 'on' || to === 'oride';
-    if (!S.power) { S.apu.on = false; S.apu.ready = false; S.apu.t = 0; }
-  }
+  if (id === 'battSw') S.power = to === 'on' || to === 'oride';
 
-  if (id === 'apuSw') {
-    if (to === 'on' && !S.power) {
-      sim.emit('No electrical power — the battery has to be on first.', 'warn');
-    }
-    S.apu.on = to === 'on' && S.power;
-    if (!S.apu.on) { S.apu.ready = false; S.apu.t = 0; }
+  if (id === 'apuSw' && to === 'on' && !S.power) {
+    sim.emit('No electrical power — the battery has to be on first.', 'warn');
   }
+  /* Note what is NOT here: nothing latches whether the APU is running. See the
+     APU block in tick(). */
 
   /* The fire and bleed air test is spring-loaded, and closing both bleed air
      valves is its real consequence. */
@@ -156,11 +151,40 @@ export function onChange(sim, id, to) {
 export function tick(sim, dt, real) {
   const S = sim.S, sw = S.sw;
 
-  /* APU */
-  if (S.apu.on && S.power) {
+  /* APU.
+     DERIVED FROM BOTH SWITCHES, EVERY FRAME — never latched.
+
+     The first version set `apu.on` in onChange when the APU switch moved, and
+     cleared it in onChange when the battery went off. That produced a state
+     the cockpit could not explain: battery ON, APU switch ON, APU dead, no
+     caution, no way back short of restarting the procedure. All it took was
+     cycling the battery — which the checklist explicitly asks you to do, two
+     steps earlier, to rewind the fire test tape.
+
+     Anything that depends on two switches has to be computed from both of them
+     on every frame. A latch is only ever correct until the other input moves. */
+  const apuPowered = sw.apuSw === 'on' && S.power;
+  if (!apuPowered) {
+    if (S.apu.on) sim.emit('APU stopped — it lost the bus.', 'warn');
+    S.apu.on = false; S.apu.t = 0; S.apu.ready = false;
+  } else {
+    S.apu.on = true;
     S.apu.t += dt;
-    S.apu.ready = S.apu.t >= APU_SPOOL;
+    if (!S.apu.ready && S.apu.t >= APU_SPOOL) {
+      S.apu.ready = true;
+      sim.emit('APU READY — green light on the left console.', 'good');
+    }
   }
+
+  /* And say so, once, rather than leaving somebody watching a light that is
+     never going to come on. */
+  if (sw.apuSw === 'on' && !S.power) {
+    S.apuNoPowerT = (S.apuNoPowerT ?? 0) + real;
+    if (S.apuNoPowerT > 3 && !S.apuNoPowerWarned) {
+      S.apuNoPowerWarned = true;
+      sim.emit('The APU switch is ON but the battery is OFF — it cannot spool.', 'warn');
+    }
+  } else { S.apuNoPowerT = 0; S.apuNoPowerWarned = false; }
 
   /* Engines */
   for (const side of ['L', 'R']) {
@@ -232,7 +256,6 @@ export function tick(sim, dt, real) {
   C.fcsHot = false;
   C.masterCaution = C.lGen || C.rGen || C.fces || C.ckSeat || C.fuelLo;
 
-  void real;
 }
 
 /* ---------------- the comms menus ---------------- */

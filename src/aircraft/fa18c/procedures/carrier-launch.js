@@ -11,7 +11,7 @@
 import { stamp } from './_common.js';
 
 export const meta = { id:'carrier-launch', crew:'pilot', phase:'takeoff', variant:'carrier',
-                      name:'Carrier launch', view:'lower',
+                      name:'Carrier launch', view:'knees',
                       ending:{ title:'Off the Cat', sub:'Gear up, flaps auto, clearing turn.' } };
 
 export const steps = stamp([

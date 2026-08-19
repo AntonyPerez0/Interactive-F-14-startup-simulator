@@ -25,14 +25,23 @@ export default {
   name: 'F/A-18C Hornet',
   source: "Chuck's DCS F/A-18C guide, Parts 4-6 and 9-11",
 
+  /* Every view is a single straight crop of the cockpit drawing — nothing is
+     moved, rotated or rearranged to fill the frame. Relative positions inside
+     a view are the aeroplane's. The left console runs fore-and-aft and is too
+     long to read in one frame, so it is split into three views ALONG ITS OWN
+     LENGTH and named for where each sits. A switch on the left console, aft, is
+     on the aft tab, on the left of it — the same place you will reach for it in
+     the jet. */
   views: [
-    { id:'front', crew:'pilot', label:'Front Panel',    src:'assets/fa18c/front.jpg' },
-    { id:'lower', crew:'pilot', label:'Gear & Pedestal', src:'assets/fa18c/lower.jpg' },
-    { id:'lcon',  crew:'pilot', label:'Left Console',   src:'assets/fa18c/lcon.jpg' },
-    { id:'rcon',  crew:'pilot', label:'Right Console',  src:'assets/fa18c/rcon.jpg' },
+    { id:'front', crew:'pilot', label:'Front Panel',        src:'assets/fa18c/front.jpg' },
+    { id:'knees', crew:'pilot', label:'Knee Panels',        src:'assets/fa18c/knees.jpg' },
+    { id:'lconF', crew:'pilot', label:'L Console · Fwd',    src:'assets/fa18c/lconF.jpg' },
+    { id:'lconM', crew:'pilot', label:'L Console · Mid',    src:'assets/fa18c/lconM.jpg' },
+    { id:'lconA', crew:'pilot', label:'L Console · Aft',    src:'assets/fa18c/lconA.jpg' },
+    { id:'rcon',  crew:'pilot', label:'Right Console',      src:'assets/fa18c/rcon.jpg' },
   ],
-  /* Nothing appears on more than one view of this aeroplane — the layout is an
-     exploded drawing, so every panel is drawn exactly once. */
+  /* Nothing appears on more than one view: every panel is drawn once on the
+     layout, so every hotspot belongs to exactly one crop. */
   sharedViews: {},
 
   controls,
