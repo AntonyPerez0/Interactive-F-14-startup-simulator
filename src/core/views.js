@@ -101,7 +101,7 @@ export function createViews(sim, ac) {
           n.appendChild(chip);
 
         } else if (g.kind === 'chip') {
-          n.className = 'gauge gchip';
+          n.className = 'gauge gchip' + (g.bare ? ' bare' : '');
           n.dataset.id = g.id;
           n.style.fontSize = (g.w < 90 ? 12 : 13) + 'px';
 

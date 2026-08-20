@@ -68,7 +68,15 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 }
 #viewport{position:absolute;inset:0;overflow:hidden}
 #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
-#world img{display:block;width:1920px;height:1080px;user-select:none;-webkit-user-drag:none}
+/* A view image is scaled into the 1920x1080 world box. `contain` lets a view
+   whose region of the artwork is not 16:9 keep its own shape and be
+   letterboxed here rather than in the file -- which is what lets the
+   Hornet consoles ship as the exact pixels of the drawing instead of a
+   43-megapixel padded frame the browser will not reliably decode. The
+   backdrop is the drawing's own grey, so the bars are invisible. No effect
+   on a 16:9 view: it fills the box, as before. */
+#world img{display:block;width:1920px;height:1080px;object-fit:contain;
+  background:#7f7f7f;user-select:none;-webkit-user-drag:none}
 #overlay{position:absolute;top:0;left:0;width:1920px;height:1080px}
 
 /* ---------- hotspots ---------- */
@@ -126,6 +134,11 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .gchip.dim{color:#546466;border-color:rgba(120,140,140,.22);text-shadow:none;background:rgba(4,9,8,.7)}
 .gchip.hot{color:var(--amber);border-color:rgba(255,176,46,.55);text-shadow:0 0 6px rgba(255,176,46,.5)}
 .gchip.bad{color:var(--red);border-color:rgba(255,74,58,.6);text-shadow:0 0 6px rgba(255,74,58,.5)}
+/* A readout drawn straight into a window that the artwork already provides —
+   the IFEI, whose printed digits are painted out of the photo so these can take
+   their place. No box of its own: the window is the box. */
+.gchip.bare,.gchip.bare.dim{background:none;border:0;border-radius:0}
+.gchip.bare{text-shadow:0 0 5px rgba(65,224,124,.45)}
 
 /* ---------- right rail ---------- */
 #rail{
