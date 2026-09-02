@@ -25,21 +25,25 @@ export default {
   name: 'F/A-18C Hornet',
   source: "Chuck's DCS F/A-18C guide, Parts 4-6 and 9-11",
 
-  /* TWO VIEWS, each a single straight crop of the cockpit drawing. Nothing is
-     moved, rotated or rearranged to fill a frame — relative positions inside a
-     view are the aeroplane's, because they are literally the same pixels in the
-     same places.
+  /* THREE VIEWS, each one straight photograph — the forward panel and the two
+      consoles, shot in DCS. Nothing is moved, rotated or rearranged to fill a
+      frame — relative positions inside a view are the aeroplane's, because
+      they are literally the same pixels in the same places.
 
-     `panels` deliberately holds the whole lower cockpit in ONE frame rather
-     than splitting it into tabs. It is dense at fit-to-screen; that is the
-     trade, and it is the right one. A switch you only ever see on a tab called
-     "left console, middle" is a switch you cannot place in a real cockpit,
-     which defeats the point of the trainer. One map you can orient yourself on,
-     plus zoom and a SHOW ME that flies to the control, beats six crops you have
-     to assemble in your head. */
+      `panels` used to hold the whole lower cockpit in ONE composed frame; the
+      photographs split it into its two natural halves instead. A switch you
+      only ever see on a tab called "left console, middle" is a switch you
+      cannot place in a real cockpit, so each console is still one map you can
+      orient yourself on, plus zoom and a SHOW ME that flies to the control.
+
+      The hotspots were re-measured against these photographs panel by panel;
+      see the header of controls.js. */
   views: [
-    { id:'front',  crew:'pilot', label:'Front Panel',       src:'assets/fa18c/front.webp' },
-    { id:'panels', crew:'pilot', label:'Panels & Consoles', src:'assets/fa18c/panels.webp' },
+    { id:'front', crew:'pilot', label:'Front Panel',   src:'assets/fa18c/front.jpg' },
+    { id:'lcon',  crew:'pilot', label:'Left Console',  src:'assets/fa18c/lcon.jpg',
+      altSrc:'assets/fa18c/lconAlt.jpg',
+      altNote:'Throttle swung aft — the fire & bleed air test switch is clear.' },
+    { id:'rcon',  crew:'pilot', label:'Right Console', src:'assets/fa18c/rcon.jpg' },
   ],
   /* Nothing appears on more than one view: every panel is drawn once on the
      layout, so every hotspot belongs to exactly one crop. */

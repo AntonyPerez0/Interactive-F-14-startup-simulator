@@ -405,6 +405,7 @@ const hint = () => {
   }
   const views = V.viewsOf(c).length ? V.viewsOf(c) : [c.view];
   if (!views.includes(V.view)) V.setView(views[0]);
+  if (c.peek) V.setAlt(true);          // show the photo the switch actually lives on
 
   // keep anything the control reads out on screen too, so you can watch the
   // result while you work it — the CAP keypad and its TID line, for instance

@@ -20,9 +20,9 @@ STAMP = ROOT / 'src' / 'core' / 'build.js'
 files = ['./index.html', './manifest.webmanifest', './favicon.ico', './favicon.svg']
 for pat in ('src/**/*.js', 'src/**/*.css', 'assets/**/*.jpg', 'assets/**/*.png',
             'assets/**/*.webp'):
-    files += ['./' + str(p.relative_to(ROOT)) for p in sorted(ROOT.glob(pat))]
+    files += ['./' + p.relative_to(ROOT).as_posix() for p in sorted(ROOT.glob(pat))]
 
-stamp_rel = './' + str(STAMP.relative_to(ROOT))
+stamp_rel = './' + STAMP.relative_to(ROOT).as_posix()
 if stamp_rel not in files:
     files.append(stamp_rel)
 files = sorted(set(files))

@@ -17,22 +17,17 @@ the artwork can be swapped without rewriting anything.
 
 ### F/A-18C cockpit views
 
-The four Hornet views are cut from a single F/A-18C cockpit layout drawing
-(`FA18C_1.0.png`) by `tools/compose-fa18c.py`, which also generates the hotspot
-coordinates in `src/aircraft/fa18c/controls.js` from the same transform.
+The three Hornet views (front panel, left console, right console) are
+screenshots of the **DCS World** F/A-18C cockpit, taken by the site owner.
+The F/A-18C module is developed and published by **Eagle Dynamics SA**. All
+rights in that artwork remain theirs; the same terms as the F-14B imagery
+above apply.
 
-**The origin of that drawing is not established.** It carries no signature,
-watermark or copyright notice — which is not the same as being free to publish;
-an unmarked file is more often one whose notice was cropped than one that was
-released. Before relying on it:
-
-1. find where `FA18C_1.0.png` came from and what licence it carried;
-2. credit the author here once you know;
-3. if that cannot be established, replace it.
-
-Replacing it is cheap by design. The trainer stores hotspots as coordinates, so
-a new drawing means re-cutting the views with `tools/compose-fa18c.py` and
-regenerating — no procedure, system or test changes.
+They replaced an earlier set of views cut from a cockpit layout drawing of
+unestablished origin, resolving the concern recorded here previously. The
+hotspots in `src/aircraft/fa18c/controls.js` were re-measured against the
+photographs; swapping imagery again means re-measuring, with no procedure,
+system or test changes.
 
 ## Procedures
 

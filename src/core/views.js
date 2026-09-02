@@ -13,14 +13,20 @@ export function createViews(sim, ac) {
     zoom: 1, panX: 0, panY: 0,
     nodes: {}, gnodes: {}, cue: null,
     labels: false, edit: false, guided: true,
-    imgs: {},
+    imgs: {}, altImgs: {}, altOn: false,
 
     /* which views a control belongs to ('pilotBoth' expands to both pilot photos) */
     viewsOf(c) {
       if (c.tray) return [];
       return ac.sharedViews[c.view] || [c.view];
     },
-    shows(c) { return this.viewsOf(c).includes(this.view); },
+    /* A `peek` control is on the view's ALTERNATE photo (v.altSrc) — a shot
+       taken with whatever was hiding it moved aside. Its hotspot exists only
+       while the alternate photo is showing. */
+    shows(c) {
+      if (c.peek) return !this.tray && this.view === c.view && this.altOn;
+      return this.viewsOf(c).includes(this.view);
+    },
 
     /* ---------------- build ---------------- */
     mount() {
@@ -32,14 +38,42 @@ export function createViews(sim, ac) {
         img.src = v.src;
         world.insertBefore(img, $('#overlay'));
         this.imgs[v.id] = img;
+        if (v.altSrc) {
+          const alt = el('img');
+          alt.alt = ac.name + ' — ' + v.label + ' (alternate)';
+          alt.style.display = 'none';
+          alt.src = v.altSrc;
+          world.insertBefore(alt, $('#overlay'));
+          this.altImgs[v.id] = alt;
+        }
       });
       this.buildTray();
       this.buildOverlay();
     },
 
+    /* Swing the view's alternate photo (if it has one) in or out, and with it
+       the hotspots of that view's peek controls. */
+    setAlt(on) {
+      if (this.altOn === on) return;
+      const img = this.altImgs[this.view];
+      if (!img) return;
+      this.altOn = on;
+      img.style.display = on ? 'block' : 'none';
+      ac.controls.forEach(c => {
+        if (c.peek && this.view === c.view) {
+          const n = this.nodes[c.id];
+          if (n) n.style.display = on ? '' : 'none';
+        }
+      });
+      if (on) {
+        const v = ac.views.find(x => x.id === this.view);
+        if (v && v.altNote) toast(v.altNote, 'radio');
+      }
+    },
+
     buildTray(only) {
       if (this.tray) { this.tray.remove(); this.tray = null; }
-      const wanted = ac.controls.filter(c => c.tray && (!only || only.has(c.id)));
+      const wanted = ac.controls.filter(c => (c.tray || c.peek) && (!only || only.has(c.id)));
       if (!wanted.length) return;
       const tray = el('div');
       tray.id = 'tray';
@@ -62,7 +96,7 @@ export function createViews(sim, ac) {
         const b = el('button', 'trayitem');
         b.dataset.tray = c.id;
         const label = el('span');
-        label.textContent = c.name;
+        label.textContent = c.name + (c.peek ? ' (behind the throttle)' : '');
         const value = el('b');
         b.appendChild(label); b.appendChild(value);
         tray.appendChild(b);
@@ -133,10 +167,11 @@ export function createViews(sim, ac) {
         this.gnodes[g.id] = n;
       });
 
-      ac.controls.filter(c => this.shows(c)).forEach(c => {
+      ac.controls.filter(c => this.shows(c) || (c.peek && this.view === c.view)).forEach(c => {
         const n = el('div', 'hs');
         n.dataset.id = c.id;
         n.style.cssText = `left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px`;
+        if (c.peek && !this.altOn) n.style.display = 'none';
         n.title = c.name;
         const v = el('div', 'val');
         v.textContent = c.name;
@@ -155,6 +190,7 @@ export function createViews(sim, ac) {
 
     setView(id) {
       if (id === this.view) return;
+      this.setAlt(false);
       this.view = id;
       Object.entries(this.imgs).forEach(([k, img]) => { img.style.display = k === id ? 'block' : 'none'; });
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.view === id));
@@ -240,7 +276,7 @@ export function createViews(sim, ac) {
       const S = sim.S;
 
       ac.controls.forEach(c => {
-        if (c.tray) {
+        if (c.tray || c.peek) {
           const b = this.nodes['tray:' + c.id];
           if (!b) return;
           const v = b._value;
@@ -295,6 +331,13 @@ export function createViews(sim, ac) {
 
       /* cue ring on whatever the current step wants */
       if (this.cue) { this.cue.classList.remove('cue'); this.cue = null; }
+      /* a cued peek control swings the alternate photo in; a cued ordinary
+         control swings it back. No cue at all leaves it as it was, so a
+         SHOW ME on a hidden switch keeps it visible until you move on. */
+      if (cueTarget) {
+        const ct = ac.controls.find(c => c.id === cueTarget);
+        this.setAlt(!!(ct && ct.peek));
+      }
       if (this.guided && cueTarget) {
         const n = this.nodes[cueTarget] || this.gnodes[cueTarget] || this.nodes['tray:' + cueTarget];
         if (n) { n.classList.add('cue'); this.cue = n; }
